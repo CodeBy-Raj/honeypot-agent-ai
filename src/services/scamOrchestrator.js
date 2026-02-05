@@ -21,7 +21,7 @@ import {
 import buildFinalReport from "./buildFinalReport.js";
 import finalcallback from "./finalCallback.js";
 
-const MAX_MESSAGES = 15; // Increased slightly for more engagement
+const MAX_MESSAGES = 17; // Increased slightly for more engagement
 
 export const orchestrateResponse = async (
   sessionId,
@@ -69,9 +69,13 @@ export const orchestrateResponse = async (
       ...(llmIntel.suspiciousKeywords || []),
     ],
     // Add new fields for report
-    bankAccounts: llmIntel.entities?.bankName
-      ? [llmIntel.entities.bankName]
-      : [],
+    // Capture both Name and Number if available
+    bankAccounts: [
+      ...(llmIntel.entities?.bankName ? [llmIntel.entities.bankName] : []),
+      ...(llmIntel.entities?.bankAccountNumber
+        ? [llmIntel.entities.bankAccountNumber]
+        : []),
+    ],
   };
 
   addIntelligence(sessionId, mergedIntel);

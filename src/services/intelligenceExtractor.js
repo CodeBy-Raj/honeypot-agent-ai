@@ -60,6 +60,7 @@ export async function extractIntelligenceWithLLM(text) {
         "riskScore": number (0-100),
         "entities": {
            "bankName": string | null,
+           "bankAccountNumber": string | null,
            "upiId": string | null,
            "phoneNumber": string | null,
            "cryptoWallet": string | null,
