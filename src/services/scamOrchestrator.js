@@ -40,23 +40,25 @@ export const orchestrateResponse = async (
   incrementMessages(sessionId);
   const sessionStats = getStats(sessionId);
 
-  // 2. Parallel Analysis (Fast Regex + Slow LLM)
+  // 2. Parallel Analysis (Fast Regex + Parallel Models)
   const regexIntel = extractIntelligence(userMessage);
 
-  // Trigger Fast Detection first
-  let detection = { isScam: false };
-  if (!sessionStats.scamDetected) {
-    detection = await detectScam(userMessage);
-    if (detection.isScam) {
-      markScam(sessionId);
-    }
-  }
+  // Run Tanaos (Detection) and Groq (Extraction) in PARALLEL for speed
+  const [detection, llmIntel] = await Promise.all([
+    // Task 1: Scam Detection (Tanaos)
+    (async () => {
+      if (!sessionStats.scamDetected) {
+        const res = await detectScam(userMessage);
+        if (res.isScam) markScam(sessionId);
+        return res;
+      }
+      return { isScam: true }; // Already detected
+    })(),
+    // Task 2: Deep Analysis (Groq/Gemini)
+    extractIntelligenceWithLLM(userMessage),
+  ]);
 
-  // Deep Analysis (Slow Path) - Check with LLM for entity extraction
-  // We can do this in background or await if we need it for immediate strategy
-  const llmIntel = await extractIntelligenceWithLLM(userMessage);
-
-  // Combine Intelligence
+  // Combine Intelligence (unchanged logic)
   const mergedIntel = {
     links: [...regexIntel.links, ...(llmIntel.links || [])],
     upiIds: [...regexIntel.upiIds, ...(llmIntel.upiIds || [])],
