@@ -21,7 +21,7 @@ import {
 import buildFinalReport from "./buildFinalReport.js";
 import finalcallback from "./finalCallback.js";
 
-const MAX_MESSAGES = 25; // Increased slightly for more engagement
+const MAX_MESSAGES = 19; // Increased slightly for more engagement
 
 export const orchestrateResponse = async (
   sessionId,
