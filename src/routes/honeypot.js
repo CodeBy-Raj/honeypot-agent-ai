@@ -6,16 +6,20 @@ const router = express.Router();
 
 router.post("/honeypot", verifyApikey, async (req, res) => {
   try {
-    const { sessionId, message } = req.body;
+    const { sessionId, message, conversationHistory } = req.body;
     const messageText = message?.text || "";
 
-    const result = await orchestrateResponse(sessionId, messageText);
+    const result = await orchestrateResponse(
+      sessionId,
+      messageText,
+      conversationHistory,
+    );
 
     if (result.shouldStop) {
-       return res.json({
-         status: "success",
-         reply: "Connection closed.", // Or keep silent.
-        });
+      return res.json({
+        status: "success",
+        reply: "Connection closed.", // Or keep silent.
+      });
     }
 
     return res.json({

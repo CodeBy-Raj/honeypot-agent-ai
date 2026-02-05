@@ -10,14 +10,32 @@ import {
   addMessage,
   getSessionMeta,
   updateSessionMeta,
+  syncSessionHistory,
 } from "./sessionStore.js";
-import { incrementMessages, markScam, getStats } from "./sessionStats.js";
+import {
+  incrementMessages,
+  markScam,
+  getStats,
+  syncStats,
+} from "./sessionStats.js";
 import buildFinalReport from "./buildFinalReport.js";
 import finalcallback from "./finalCallback.js";
 
 const MAX_MESSAGES = 15; // Increased slightly for more engagement
 
-export const orchestrateResponse = async (sessionId, userMessage) => {
+export const orchestrateResponse = async (
+  sessionId,
+  userMessage,
+  externalHistory = [],
+) => {
+  // 0. Sync State (Evaluation Readiness)
+  if (externalHistory && externalHistory.length > 0) {
+    syncSessionHistory(sessionId, externalHistory);
+    // Rough estimate: history length is total messages exchanged previously
+    // If history has 2 items (1 scammer, 1 user), that's 2 messages.
+    syncStats(sessionId, externalHistory.length);
+  }
+
   // 1. Ingestion & Stats
   incrementMessages(sessionId);
   const sessionStats = getStats(sessionId);
@@ -34,29 +52,22 @@ export const orchestrateResponse = async (sessionId, userMessage) => {
     }
   }
 
-  // Deep Analysis (LLM) - Run in background or wait depending on architecture
-  // For hackathon "Edge", we use it to refine strategy
-  let llmIntel = {};
-  try {
-    llmIntel = await extractIntelligenceWithLLM(userMessage);
-  } catch (e) {
-    console.log("LLM Intel failed, falling back");
-  }
+  // Deep Analysis (Slow Path) - Check with LLM for entity extraction
+  // We can do this in background or await if we need it for immediate strategy
+  const llmIntel = await extractIntelligenceWithLLM(userMessage);
 
-  // Merge Intelligence
+  // Combine Intelligence
   const mergedIntel = {
-    links: regexIntel.links,
-    upiIds: [
-      ...regexIntel.upiIds,
-      ...(llmIntel.entities?.upiId ? [llmIntel.entities.upiId] : []),
-    ],
+    links: [...regexIntel.links, ...(llmIntel.links || [])],
+    upiIds: [...regexIntel.upiIds, ...(llmIntel.upiIds || [])],
     phoneNumbers: [
       ...regexIntel.phoneNumbers,
-      ...(llmIntel.entities?.phoneNumber
-        ? [llmIntel.entities.phoneNumber]
-        : []),
+      ...(llmIntel.phoneNumbers || []),
     ],
-    suspiciousKeywords: regexIntel.suspiciousKeywords,
+    suspiciousKeywords: [
+      ...regexIntel.suspiciousKeywords,
+      ...(llmIntel.suspiciousKeywords || []),
+    ],
     // Add new fields for report
     bankAccounts: llmIntel.entities?.bankName
       ? [llmIntel.entities.bankName]
@@ -67,11 +78,15 @@ export const orchestrateResponse = async (sessionId, userMessage) => {
 
   // 3. Update Session Meta & Strategy
   const currentMeta = getSessionMeta(sessionId);
-  
+
   // Strategy Logic
   let newGoal = "engage";
   if (detection.isScam || sessionStats.scamDetected) {
-    if (mergedIntel.upiIds.length > 0 || mergedIntel.links.length > 0) {
+    if (
+      mergedIntel.upiIds.length > 0 ||
+      mergedIntel.links.length > 0 ||
+      mergedIntel.phoneNumbers.length > 0
+    ) {
       newGoal = "stall_and_validate"; // We have the goods, now waste time
     } else {
       newGoal = "lure_payment_details"; // We need the goods
@@ -85,32 +100,32 @@ export const orchestrateResponse = async (sessionId, userMessage) => {
 
   // 4. Check Stopping Condition
   if (sessionStats.messages >= MAX_MESSAGES) {
-      const report = buildFinalReport(sessionId);
-      await finalcallback(report);
-      return {
-          reply: "Okay, I will look into it. Thanks.",
-          shouldStop: true
-      }
+    const report = buildFinalReport(sessionId);
+    await finalcallback(report);
+    return {
+      reply: "Connection closed. (Honeypot Session Complete)",
+      shouldStop: true,
+    };
   }
-  
-  // 5. Generate Reply with Persona & Goal
+
+  // 5. Generate Response
+  // Get full history from store (now hydrated)
   const history = getSession(sessionId);
-  
-  // Don't reply if not a scam (in a real honeypot), but for hackathon contest we might want to be chatty
+
   // adhering to spec: "If scam intent is detected, the AI Agent is activated"
-  // But we need to respond to the First Message regardless to confirm receipt usually? 
+  // But we need to respond to the First Message regardless to confirm receipt usually?
   // No, spec says "2. Your system analyzes... 3. If scam detected -> Agent activated".
-  // If not scam, strictly speaking we might return "Success" or ignore. 
+  // If not scam, strictly speaking we might return "Success" or ignore.
   // But let's assume aggressive honeypotting: treat everything as potential scam or neutral.
 
   // We rely on previous `honeypot.js` logic which replied "Okay tell me more" if not scam.
   // We will let the Agent handle it but instruct it to be cautious if not sure.
 
   const agentReply = await generateReply(
-    userMessage, 
-    history, 
-    currentMeta.persona, 
-    newGoal
+    userMessage,
+    history,
+    currentMeta.persona,
+    newGoal,
   );
 
   // 6. Update History
@@ -120,6 +135,6 @@ export const orchestrateResponse = async (sessionId, userMessage) => {
   return {
     reply: agentReply,
     shouldStop: false,
-    meta: getSessionMeta(sessionId) // useful for debug
+    meta: getSessionMeta(sessionId), // useful for debug
   };
 };

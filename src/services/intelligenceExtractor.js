@@ -1,7 +1,8 @@
 // src/services/intelligenceExtractor.js
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GEMINI_API_KEY } from "../config/env.js";
+import { GEMINI_API_KEY, AI_PROVIDER } from "../config/env.js";
+import { generateGroqJson } from "./groqService.js";
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
@@ -27,11 +28,17 @@ const model = genAI.getGenerativeModel({
 });
 
 export function extractIntelligence(text) {
-  if (!text) return {};
+  if (!text)
+    return {
+      links: [],
+      upiIds: [],
+      phoneNumbers: [],
+      suspiciousKeywords: [],
+    };
 
   const lowerText = text.toLowerCase();
   const foundKeywords = SUSPICIOUS_KEYWORDS.filter((kw) =>
-    lowerText.includes(kw)
+    lowerText.includes(kw),
   );
 
   return {
@@ -44,8 +51,8 @@ export function extractIntelligence(text) {
 
 export async function extractIntelligenceWithLLM(text) {
   if (!text) return {};
-  try {
-    const prompt = `
+
+  const prompt = `
       Analyze the following message from a potential scammer and extract structured intelligence.
       Return a JSON object with this schema:
       {
@@ -65,11 +72,25 @@ export async function extractIntelligenceWithLLM(text) {
       Message: "${text}"
     `;
 
+  // 1. Try Groq if enabled (preferred for speed)
+  if (AI_PROVIDER === "groq") {
+    try {
+      return await generateGroqJson(prompt);
+    } catch (e) {
+      console.warn(
+        "Groq Extraction Failed, falling back to Gemini:",
+        e.message || e,
+      );
+    }
+  }
+
+  // 2. Fallback to Gemini
+  try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return JSON.parse(response.text());
   } catch (error) {
-    console.error("LLM Extraction Error:", error);
+    console.error("LLM Extraction Error (Gemini):", error);
     return {};
   }
 }

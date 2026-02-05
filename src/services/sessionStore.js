@@ -38,19 +38,32 @@ export function getSession(sessionId) {
 }
 
 export function getSessionMeta(sessionId) {
-  // Ensure session exists
-  getSession(sessionId);
+  if (!sessionMeta.has(sessionId)) {
+    getSession(sessionId); // ensures init
+  }
   return sessionMeta.get(sessionId);
 }
 
 export function updateSessionMeta(sessionId, updates) {
   const meta = getSessionMeta(sessionId);
-  if (meta) {
-    sessionMeta.set(sessionId, { ...meta, ...updates });
-  }
+  sessionMeta.set(sessionId, { ...meta, ...updates });
 }
 
-export const addMessage = (sessionId, role, content) => {
+export function addMessage(sessionId, role, content) {
   const history = getSession(sessionId);
-  history.push({ role, content });
-};
+  history.push({ role, parts: [{ text: content }] });
+}
+
+export function syncSessionHistory(sessionId, externalHistory) {
+  const currentHistory = getSession(sessionId);
+  // If we are starting fresh but there is external history, use it.
+  // We prefer external history to allow "stateless" evaluation behavior.
+  // Converting section 6.2 format [{sender: 'scammer', text: '...'}, ...] to Gemini format
+  if (currentHistory.length === 0 && externalHistory.length > 0) {
+    const formatted = externalHistory.map((msg) => ({
+      role: msg.sender === "scammer" ? "user" : "model", // Gemini maps 'user' to us, 'model' to agent
+      parts: [{ text: msg.text }],
+    }));
+    sessions.set(sessionId, formatted);
+  }
+}

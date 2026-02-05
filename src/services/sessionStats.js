@@ -23,3 +23,12 @@ export const getStats = (sessionId) => {
   initStats(sessionId);
   return stats.get(sessionId);
 };
+
+export const syncStats = (sessionId, messageCount) => {
+  initStats(sessionId);
+  const current = stats.get(sessionId);
+  // Only update if external count is higher (e.g. restoring state)
+  if (messageCount > current.messages) {
+    current.messages = messageCount;
+  }
+};
