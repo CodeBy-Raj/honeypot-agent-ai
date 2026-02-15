@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_API_KEY, AI_PROVIDER } from "../config/env.js";
-import { generateGroqJson } from "./groqService.js";
+import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
@@ -30,7 +30,7 @@ const model = genAI.getGenerativeModel({
 export function extractIntelligence(text) {
   if (!text)
     return {
-      links: [],
+      phishingLinks: [],
       upiIds: [],
       phoneNumbers: [],
       suspiciousKeywords: [],
@@ -42,7 +42,7 @@ export function extractIntelligence(text) {
   );
 
   return {
-    links: text.match(URL_REGEX) || [],
+    phishingLinks: text.match(URL_REGEX) || [],
     upiIds: text.match(UPI_REGEX) || [],
     phoneNumbers: text.match(PHONE_REGEX) || [],
     suspiciousKeywords: foundKeywords,
@@ -76,7 +76,7 @@ export async function extractIntelligenceWithLLM(text) {
   // 1. Try Groq if enabled (preferred for speed)
   if (AI_PROVIDER === "groq") {
     try {
-      return await generateGroqJson(prompt);
+      return await generateGroqJsonWithRetry(prompt);
     } catch (e) {
       console.warn(
         "Groq Extraction Failed, falling back to Gemini:",

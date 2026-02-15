@@ -1,12 +1,12 @@
 // src/services/groqService.js
 import Groq from "groq-sdk";
-import { GROQ_API_KEY } from "../config/env.js";
+import { GROQ_API_KEY_1 } from "../config/env.js";
 
 let groq;
 
 try {
-  if (GROQ_API_KEY) {
-    groq = new Groq({ apiKey: GROQ_API_KEY });
+  if (GROQ_API_KEY_1) {
+    groq = new Groq({ apiKey: GROQ_API_KEY_1 });
   }
 } catch (error) {
   console.error("Groq initialization failed:", error);
@@ -18,7 +18,7 @@ export const generateGroqReply = async (
   conversationHistory = [],
 ) => {
   if (!groq) {
-    throw new Error("GROQ_API_KEY is missing via env variables");
+    throw new Error("GROQ_API_KEY_1 is missing via env variables");
   }
 
   // Convert internal history format to Groq/OpenAI format
@@ -50,7 +50,7 @@ export const generateGroqReply = async (
 
 export const generateGroqJson = async (prompt) => {
   if (!groq) {
-    throw new Error("GROQ_API_KEY is missing");
+    throw new Error("GROQ_API_KEY_1 is missing");
   }
 
   try {
