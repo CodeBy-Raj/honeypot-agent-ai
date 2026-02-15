@@ -73,7 +73,7 @@ function toGroqFormat(conversationHistory = []) {
 
 function toGeminiFormat(conversationHistory = []) {
   return conversationHistory.map((msg) => ({
-    role: msg.role === "assistant" ? "model" : "user",
+    role: msg.role === "assistant" || msg.role === "model" ? "model" : "user",
     parts: [{ text: msg.parts ? msg.parts[0].text : msg.content }],
   }));
 }

@@ -66,9 +66,12 @@ Required:
 - `GEMINI_API_KEY`
 - `TANAOS_API_KEY`
 - `GROQ_API_KEY_1`
+- `AI_PROVIDER` (`groq` recommended)
+
+Optional (recommended for key rotation):
+
 - `GROQ_API_KEY_2`
 - `GROQ_API_KEY_3`
-- `AI_PROVIDER` (`groq` recommended)
 
 ## API Contract
 

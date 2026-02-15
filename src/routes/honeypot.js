@@ -44,6 +44,14 @@ router.post("/honeypot", verifyApikey, async (req, res) => {
       sender,
     );
 
+    if (result?.skipped) {
+      return res.json({
+        status: "success",
+        skipped: true,
+        reason: result.reason,
+      });
+    }
+
     if (result.shouldStop) {
       return res.json({
         status: "success",

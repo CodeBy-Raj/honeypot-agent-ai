@@ -16,7 +16,6 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Track usage per key
 let currentKeyIndex = 0;
-const keyUsageTracker = new Map();
 
 export function getNextGroqKey() {
   if (GROQ_API_KEYS.length === 0) {

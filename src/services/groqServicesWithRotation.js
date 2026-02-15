@@ -1,4 +1,4 @@
-// src/services/groqServiceWithRotation.js
+// src/services/groqServicesWithRotation.js
 
 import Groq from "groq-sdk";
 import { getNextGroqKey } from "../config/aiProviders.js";

@@ -29,14 +29,17 @@ export const orchestrateResponse = async (
   externalHistory = [],
   sender = "scammer", // Added sender parameter
 ) => {
-  // Guard Clause: If the sender is NOT the scammer (e.g., 'user' echoing back),
-  // we should arguably NOT reply to avoid infinite loops.
-  // BUT the problem statement implies incoming messages are from the scammer.
-  // We will proceed but log it.
+  // Guard Clause: If sender is not scammer (e.g., echo/user message), skip orchestration
+  // to avoid infinite loops and role-history corruption.
   if (sender !== "scammer") {
     console.warn(
-      `[Orchestrator] Received message from '${sender}'. Treating as potential scammer input.`,
+      `[Orchestrator] Received message from '${sender}'. Skipping orchestration because sender is not 'scammer'.`,
     );
+    return {
+      skipped: true,
+      reason: "non-scammer-sender",
+      sender,
+    };
   }
 
   // 0. Sync State (Evaluation Readiness)
@@ -75,10 +78,15 @@ export const orchestrateResponse = async (
       ...regexIntel.phishingLinks,
       ...(llmIntel.entities?.url ? [llmIntel.entities.url] : []),
     ],
-    upiIds: [...regexIntel.upiIds, ...(llmIntel.upiIds || [])],
+    upiIds: [
+      ...regexIntel.upiIds,
+      ...(llmIntel.entities?.upiId ? [llmIntel.entities.upiId] : []),
+    ],
     phoneNumbers: [
       ...regexIntel.phoneNumbers,
-      ...(llmIntel.phoneNumbers || []),
+      ...(llmIntel.entities?.phoneNumber
+        ? [llmIntel.entities.phoneNumber]
+        : []),
     ],
     suspiciousKeywords: [
       ...regexIntel.suspiciousKeywords,
