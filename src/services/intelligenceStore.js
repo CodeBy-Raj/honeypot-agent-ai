@@ -5,10 +5,11 @@ const intelligenceDB = new Map();
 export function initSession(sessionId) {
   if (!intelligenceDB.has(sessionId)) {
     intelligenceDB.set(sessionId, {
-      links: new Set(),
+      phishingLinks: new Set(),
       upiIds: new Set(),
       phoneNumbers: new Set(),
       suspiciousKeywords: new Set(),
+      bankAccounts: new Set(),
     });
   }
 }
@@ -18,10 +19,11 @@ export function addIntelligence(sessionId, extracted) {
 
   const store = intelligenceDB.get(sessionId);
 
-  extracted.links?.forEach((l) => store.links.add(l));
+  extracted.phishingLinks?.forEach((l) => store.phishingLinks.add(l));
   extracted.upiIds?.forEach((u) => store.upiIds.add(u));
   extracted.phoneNumbers?.forEach((p) => store.phoneNumbers.add(p));
   extracted.suspiciousKeywords?.forEach((k) => store.suspiciousKeywords.add(k));
+  extracted.bankAccounts?.forEach((b) => store.bankAccounts.add(b));
 }
 
 export function getIntelligence(sessionId) {
@@ -29,9 +31,10 @@ export function getIntelligence(sessionId) {
   if (!store) return null;
 
   return {
-    links: [...store.links],
+    phishingLinks: [...store.phishingLinks],
     upiIds: [...store.upiIds],
     phoneNumbers: [...store.phoneNumbers],
     suspiciousKeywords: [...store.suspiciousKeywords],
+    bankAccounts: [...store.bankAccounts],
   };
 }

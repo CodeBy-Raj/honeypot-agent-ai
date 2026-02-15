@@ -3,3 +3,7 @@ dist/
 .env
 tests/
 problem-statement.md
+qa_report.md
+presentation_format.md
+FAQ's.md
+.env.example

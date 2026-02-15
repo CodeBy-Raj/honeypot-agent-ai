@@ -27,7 +27,18 @@ export const orchestrateResponse = async (
   sessionId,
   userMessage,
   externalHistory = [],
+  sender = "scammer", // Added sender parameter
 ) => {
+  // Guard Clause: If the sender is NOT the scammer (e.g., 'user' echoing back),
+  // we should arguably NOT reply to avoid infinite loops.
+  // BUT the problem statement implies incoming messages are from the scammer.
+  // We will proceed but log it.
+  if (sender !== "scammer") {
+    console.warn(
+      `[Orchestrator] Received message from '${sender}'. Treating as potential scammer input.`,
+    );
+  }
+
   // 0. Sync State (Evaluation Readiness)
   if (externalHistory && externalHistory.length > 0) {
     syncSessionHistory(sessionId, externalHistory);
@@ -60,7 +71,10 @@ export const orchestrateResponse = async (
 
   // Combine Intelligence (unchanged logic)
   const mergedIntel = {
-    links: [...regexIntel.links, ...(llmIntel.links || [])],
+    phishingLinks: [
+      ...regexIntel.phishingLinks,
+      ...(llmIntel.entities?.url ? [llmIntel.entities.url] : []),
+    ],
     upiIds: [...regexIntel.upiIds, ...(llmIntel.upiIds || [])],
     phoneNumbers: [
       ...regexIntel.phoneNumbers,
@@ -86,12 +100,14 @@ export const orchestrateResponse = async (
   const currentMeta = getSessionMeta(sessionId);
 
   // Strategy Logic
+  const scamActive = detection.isScam || sessionStats.scamDetected;
   let newGoal = "engage";
-  if (detection.isScam || sessionStats.scamDetected) {
+  if (scamActive) {
     if (
       mergedIntel.upiIds.length > 0 ||
-      mergedIntel.links.length > 0 ||
-      mergedIntel.phoneNumbers.length > 0
+      mergedIntel.phishingLinks.length > 0 ||
+      mergedIntel.phoneNumbers.length > 0 ||
+      mergedIntel.bankAccounts.length > 0
     ) {
       newGoal = "stall_and_validate"; // We have the goods, now waste time
     } else {
@@ -104,9 +120,20 @@ export const orchestrateResponse = async (
     goal: newGoal,
   });
 
+  if (!scamActive) {
+    const safeReply = "Thanks for your message.";
+    addMessage(sessionId, "user", userMessage);
+    addMessage(sessionId, "assistant", safeReply);
+    return {
+      reply: safeReply,
+      shouldStop: false,
+      meta: getSessionMeta(sessionId),
+    };
+  }
+
   // 4. Check Stopping Condition
   if (sessionStats.messages >= MAX_MESSAGES) {
-    const report = buildFinalReport(sessionId);
+    const report = await buildFinalReport(sessionId);
     await finalcallback(report);
     return {
       reply: "Connection closed. (Honeypot Session Complete)",
