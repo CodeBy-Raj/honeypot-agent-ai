@@ -12,6 +12,7 @@ AI-powered honeypot backend for scam detection, multi-turn engagement, intellige
   - `upiIds`
   - `phoneNumbers`
   - `bankAccounts`
+  - `emailAddresses`
   - `suspiciousKeywords`
 - Sends mandatory final callback to GUVI endpoint
 - Supports Groq multi-key rotation and Gemini fallback
@@ -129,7 +130,16 @@ Validation rules:
 ```json
 {
   "status": "success",
-  "reply": "..."
+  "reply": "Your conversational response to the scammer",
+  "scamDetected": true,
+  "extractedIntelligence": {
+    "phoneNumbers": [],
+    "bankAccounts": [],
+    "upiIds": [],
+    "phishingLinks": [],
+    "emailAddresses": []
+  },
+  "agentNotes": "Optional analysis of the conversation"
 }
 ```
 
@@ -138,9 +148,27 @@ When stop condition is reached:
 ```json
 {
   "status": "success",
-  "reply": "Connection closed."
+  "reply": "Connection closed.",
+  "scamDetected": true,
+  "extractedIntelligence": {
+    "phoneNumbers": [],
+    "bankAccounts": [],
+    "upiIds": [],
+    "phishingLinks": [],
+    "emailAddresses": []
+  },
+  "agentNotes": "Scam signals detected..."
 }
 ```
+
+## Submission Checklist
+
+- Public HTTPS endpoint reachable without VPN/firewall restrictions
+- Response time within 30 seconds for valid requests
+- `POST /api/honeypot` returns HTTP 200 on valid payloads
+- Response JSON always includes: `status`, `reply`, `scamDetected`, `extractedIntelligence`, `agentNotes`
+- `extractedIntelligence` includes all five arrays: `phoneNumbers`, `bankAccounts`, `upiIds`, `phishingLinks`, `emailAddresses`
+- Repository should be public and README should be up to date before submission
 
 ## Quick Test (curl)
 
