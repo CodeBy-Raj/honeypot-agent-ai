@@ -77,10 +77,12 @@ router.post("/honeypot", verifyApikey, async (req, res) => {
     }
 
     if (result.shouldStop) {
-      return res.json(buildStructuredResponse({
-        ...result,
-        reply: "Connection closed.",
-      }));
+      return res.json(
+        buildStructuredResponse({
+          ...result,
+          reply: "Connection closed.",
+        }),
+      );
     }
 
     return res.json(buildStructuredResponse(result));
