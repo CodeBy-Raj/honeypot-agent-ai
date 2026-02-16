@@ -7,6 +7,9 @@ import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
 const PHONE_REGEX = /(?:\b|(?:\+91[\s-]?))[6-9]\d{9}\b/g;
+const BANK_ACCOUNT_REGEX = /\b\d{9,18}\b/g;
+const BANK_NAME_REGEX =
+  /\b(sbi|hdfc|icici|axis|kotak|pnb|canara|bob|idfc|yes bank|paytm payments bank|fakebank)\b/gi;
 const SUSPICIOUS_KEYWORDS = [
   "urgent",
   "verify now",
@@ -33,6 +36,7 @@ export function extractIntelligence(text) {
       phishingLinks: [],
       upiIds: [],
       phoneNumbers: [],
+      bankAccounts: [],
       suspiciousKeywords: [],
     };
 
@@ -45,6 +49,10 @@ export function extractIntelligence(text) {
     phishingLinks: text.match(URL_REGEX) || [],
     upiIds: text.match(UPI_REGEX) || [],
     phoneNumbers: text.match(PHONE_REGEX) || [],
+    bankAccounts: [
+      ...(text.match(BANK_ACCOUNT_REGEX) || []),
+      ...(text.match(BANK_NAME_REGEX) || []),
+    ],
     suspiciousKeywords: foundKeywords,
   };
 }
