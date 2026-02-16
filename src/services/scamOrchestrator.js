@@ -4,7 +4,7 @@ import {
   extractIntelligence,
   extractIntelligenceWithLLM,
 } from "./intelligenceExtractor.js";
-import { addIntelligence } from "./intelligenceStore.js";
+import { addIntelligence, getIntelligence } from "./intelligenceStore.js";
 import {
   getSession,
   addMessage,
@@ -22,6 +22,7 @@ import buildFinalReport from "./buildFinalReport.js";
 import finalcallback from "./finalCallback.js";
 import {
   sanitizeBankCandidates,
+  sanitizeEmailCandidates,
   sanitizePhoneCandidates,
 } from "../utils/validator.js";
 
@@ -64,6 +65,7 @@ export const orchestrateResponse = async (
   const hasHighSignalRegexIntel =
     regexIntel.upiIds.length > 0 ||
     regexIntel.phishingLinks.length > 0 ||
+    regexIntel.emailAddresses.length > 0 ||
     regexIntel.phoneNumbers.length > 0 ||
     regexIntel.bankAccounts.length > 0;
 
@@ -97,6 +99,12 @@ export const orchestrateResponse = async (
       ...regexIntel.upiIds,
       ...(llmIntel.entities?.upiId ? [llmIntel.entities.upiId] : []),
     ],
+    emailAddresses: sanitizeEmailCandidates([
+      ...regexIntel.emailAddresses,
+      ...(llmIntel.entities?.emailAddress
+        ? [llmIntel.entities.emailAddress]
+        : []),
+    ]),
     phoneNumbers: sanitizePhoneCandidates([
       ...regexIntel.phoneNumbers,
       ...(llmIntel.entities?.phoneNumber
@@ -130,6 +138,7 @@ export const orchestrateResponse = async (
     if (
       mergedIntel.upiIds.length > 0 ||
       mergedIntel.phishingLinks.length > 0 ||
+      mergedIntel.emailAddresses.length > 0 ||
       mergedIntel.phoneNumbers.length > 0 ||
       mergedIntel.bankAccounts.length > 0
     ) {
@@ -144,12 +153,34 @@ export const orchestrateResponse = async (
     goal: newGoal,
   });
 
+  const normalizedIntelligence = () => {
+    const intelligence = getIntelligence(sessionId) || {};
+    return {
+      phoneNumbers: intelligence.phoneNumbers || [],
+      bankAccounts: intelligence.bankAccounts || [],
+      upiIds: intelligence.upiIds || [],
+      phishingLinks: intelligence.phishingLinks || [],
+      emailAddresses: intelligence.emailAddresses || [],
+    };
+  };
+
+  const buildAgentNotes = (scamDetectedFlag) => {
+    const scamType = llmIntel.scamType || currentMeta.scamType || "unknown";
+    if (!scamDetectedFlag) {
+      return "No strong scam signal detected in the latest message.";
+    }
+    return `Scam signals detected (${scamType}). Current engagement strategy: ${newGoal}.`;
+  };
+
   if (!scamActive) {
     const safeReply = "Thanks for your message.";
     addMessage(sessionId, "user", userMessage);
     addMessage(sessionId, "assistant", safeReply);
     return {
       reply: safeReply,
+      scamDetected: false,
+      extractedIntelligence: normalizedIntelligence(),
+      agentNotes: buildAgentNotes(false),
       shouldStop: false,
       meta: getSessionMeta(sessionId),
     };
@@ -168,6 +199,9 @@ export const orchestrateResponse = async (
 
     return {
       reply: "Connection closed. (Honeypot Session Complete)",
+      scamDetected: true,
+      extractedIntelligence: normalizedIntelligence(),
+      agentNotes: buildAgentNotes(true),
       shouldStop: true,
     };
   }
@@ -198,6 +232,9 @@ export const orchestrateResponse = async (
 
   return {
     reply: agentReply,
+    scamDetected: true,
+    extractedIntelligence: normalizedIntelligence(),
+    agentNotes: buildAgentNotes(true),
     shouldStop: false,
     meta: getSessionMeta(sessionId), // useful for debug
   };

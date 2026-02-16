@@ -48,6 +48,10 @@ function isAllowedBankName(value = "") {
   return BANK_NAME_ALLOWLIST.has(value.toLowerCase());
 }
 
+function isValidEmail(value = "") {
+  return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value);
+}
+
 function dedupeCaseInsensitive(values = []) {
   const seen = new Set();
   const result = [];
@@ -82,6 +86,16 @@ export function sanitizeBankCandidates(candidates = []) {
     .filter((v) => v.length > 0)
     .filter((v) => !isAmbiguousValue(v))
     .filter((v) => isValidBankAccountNumber(v) || isAllowedBankName(v));
+
+  return dedupeCaseInsensitive(filtered);
+}
+
+export function sanitizeEmailCandidates(candidates = []) {
+  const filtered = candidates
+    .map((v) => String(v || "").trim())
+    .filter((v) => v.length > 0)
+    .filter((v) => !isAmbiguousValue(v))
+    .filter((v) => isValidEmail(v));
 
   return dedupeCaseInsensitive(filtered);
 }

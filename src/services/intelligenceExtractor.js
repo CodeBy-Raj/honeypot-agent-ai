@@ -6,6 +6,7 @@ import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
+const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
 const PHONE_REGEX = /(?:\b|(?:\+91[\s-]?))[6-9]\d{9}\b/g;
 const BANK_ACCOUNT_REGEX = /\b\d{9,18}\b/g;
 const BANK_NAME_REGEX =
@@ -37,6 +38,7 @@ export function extractIntelligence(text) {
       upiIds: [],
       phoneNumbers: [],
       bankAccounts: [],
+      emailAddresses: [],
       suspiciousKeywords: [],
     };
 
@@ -48,6 +50,7 @@ export function extractIntelligence(text) {
   return {
     phishingLinks: text.match(URL_REGEX) || [],
     upiIds: text.match(UPI_REGEX) || [],
+    emailAddresses: text.match(EMAIL_REGEX) || [],
     phoneNumbers: text.match(PHONE_REGEX) || [],
     bankAccounts: [
       ...(text.match(BANK_ACCOUNT_REGEX) || []),

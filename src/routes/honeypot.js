@@ -4,6 +4,22 @@ import { orchestrateResponse } from "../services/scamOrchestrator.js";
 
 const router = express.Router();
 
+function buildStructuredResponse(result = {}) {
+  return {
+    status: "success",
+    reply: result.reply || "",
+    scamDetected: Boolean(result.scamDetected),
+    extractedIntelligence: {
+      phoneNumbers: result.extractedIntelligence?.phoneNumbers || [],
+      bankAccounts: result.extractedIntelligence?.bankAccounts || [],
+      upiIds: result.extractedIntelligence?.upiIds || [],
+      phishingLinks: result.extractedIntelligence?.phishingLinks || [],
+      emailAddresses: result.extractedIntelligence?.emailAddresses || [],
+    },
+    agentNotes: result.agentNotes || "",
+  };
+}
+
 router.post("/honeypot", verifyApikey, async (req, res) => {
   try {
     const { sessionId, message, conversationHistory } = req.body;
@@ -47,22 +63,29 @@ router.post("/honeypot", verifyApikey, async (req, res) => {
     if (result?.skipped) {
       return res.json({
         status: "success",
-        skipped: true,
-        reason: result.reason,
+        reply: "",
+        scamDetected: false,
+        extractedIntelligence: {
+          phoneNumbers: [],
+          bankAccounts: [],
+          upiIds: [],
+          phishingLinks: [],
+          emailAddresses: [],
+        },
+        agentNotes: result.reason || "Message sender skipped by orchestrator.",
       });
     }
 
     if (result.shouldStop) {
-      return res.json({
-        status: "success",
-        reply: "Connection closed.", // Or keep silent.
-      });
+      return res.json(
+        buildStructuredResponse({
+          ...result,
+          reply: "Connection closed.",
+        }),
+      );
     }
 
-    return res.json({
-      status: "success",
-      reply: result.reply,
-    });
+    return res.json(buildStructuredResponse(result));
   } catch (error) {
     console.error("Error in honeypot route:", error);
     res.status(500).json({ error: "Internal Server Error" });
