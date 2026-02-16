@@ -76,6 +76,7 @@ export async function generateGroqReplyWithRetry(
         messages: messages,
         model: "llama-3.1-8b-instant",
         temperature: temperature,
+        max_tokens: 150,
       });
 
       return chatCompletion.choices[0]?.message?.content || "";

@@ -63,6 +63,7 @@ Remember: Your goal is to WASTE THEIR TIME and EXTRACT INFORMATION while staying
 `;
 
 const AGENT_TEMPERATURE = 0.8;
+const MAX_CONTEXT_MESSAGES = 12;
 
 function toGroqFormat(conversationHistory = []) {
   return conversationHistory.map((msg) => ({
@@ -94,6 +95,7 @@ const generateReply = async (
   persona = null,
   goal = "engage",
 ) => {
+  const recentHistory = conversationHistory.slice(-MAX_CONTEXT_MESSAGES);
   let systemInstruction = SYSTEM_PROMPT;
 
   if (persona) {
@@ -113,7 +115,7 @@ const generateReply = async (
 
   if (AI_PROVIDER === "groq") {
     try {
-      const groqHistory = toGroqFormat(conversationHistory);
+      const groqHistory = toGroqFormat(recentHistory);
       const groqReply = await generateGroqReplyWithRetry(
         systemInstruction,
         userMessage,
@@ -132,7 +134,7 @@ const generateReply = async (
   }
 
   try {
-    const geminiHistory = toGeminiFormat(conversationHistory);
+    const geminiHistory = toGeminiFormat(recentHistory);
     const chat = model.startChat({
       history: geminiHistory,
       generationConfig: {

@@ -20,6 +20,10 @@ import {
 } from "./sessionStats.js";
 import buildFinalReport from "./buildFinalReport.js";
 import finalcallback from "./finalCallback.js";
+import {
+  sanitizeBankCandidates,
+  sanitizePhoneCandidates,
+} from "../utils/validator.js";
 
 const MAX_MESSAGES = 17; // Increased slightly for more engagement
 
@@ -57,6 +61,15 @@ export const orchestrateResponse = async (
   // 2. Parallel Analysis (Fast Regex + Parallel Models)
   const regexIntel = extractIntelligence(userMessage);
 
+  const hasHighSignalRegexIntel =
+    regexIntel.upiIds.length > 0 ||
+    regexIntel.phishingLinks.length > 0 ||
+    regexIntel.phoneNumbers.length > 0 ||
+    regexIntel.bankAccounts.length > 0;
+
+  const shouldRunDeepExtraction =
+    !sessionStats.scamDetected || !hasHighSignalRegexIntel;
+
   // Run Tanaos (Detection) and Groq (Extraction) in PARALLEL for speed
   const [detection, llmIntel] = await Promise.all([
     // Task 1: Scam Detection (Tanaos)
@@ -69,7 +82,9 @@ export const orchestrateResponse = async (
       return { isScam: true }; // Already detected
     })(),
     // Task 2: Deep Analysis (Groq/Gemini)
-    extractIntelligenceWithLLM(userMessage),
+    shouldRunDeepExtraction
+      ? extractIntelligenceWithLLM(userMessage)
+      : Promise.resolve({}),
   ]);
 
   // Combine Intelligence (unchanged logic)
@@ -82,24 +97,25 @@ export const orchestrateResponse = async (
       ...regexIntel.upiIds,
       ...(llmIntel.entities?.upiId ? [llmIntel.entities.upiId] : []),
     ],
-    phoneNumbers: [
+    phoneNumbers: sanitizePhoneCandidates([
       ...regexIntel.phoneNumbers,
       ...(llmIntel.entities?.phoneNumber
         ? [llmIntel.entities.phoneNumber]
         : []),
-    ],
+    ]),
     suspiciousKeywords: [
       ...regexIntel.suspiciousKeywords,
       ...(llmIntel.suspiciousKeywords || []),
     ],
     // Add new fields for report
     // Capture both Name and Number if available
-    bankAccounts: [
+    bankAccounts: sanitizeBankCandidates([
+      ...regexIntel.bankAccounts,
       ...(llmIntel.entities?.bankName ? [llmIntel.entities.bankName] : []),
       ...(llmIntel.entities?.bankAccountNumber
         ? [llmIntel.entities.bankAccountNumber]
         : []),
-    ],
+    ]),
   };
 
   addIntelligence(sessionId, mergedIntel);
@@ -141,8 +157,15 @@ export const orchestrateResponse = async (
 
   // 4. Check Stopping Condition
   if (sessionStats.messages >= MAX_MESSAGES) {
-    const report = await buildFinalReport(sessionId);
-    await finalcallback(report);
+    Promise.resolve()
+      .then(async () => {
+        const report = await buildFinalReport(sessionId);
+        await finalcallback(report);
+      })
+      .catch((err) => {
+        console.error("Final report callback failed:", err);
+      });
+
     return {
       reply: "Connection closed. (Honeypot Session Complete)",
       shouldStop: true,

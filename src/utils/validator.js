@@ -1,0 +1,87 @@
+const BANK_NAME_ALLOWLIST = new Set([
+  "sbi",
+  "hdfc",
+  "icici",
+  "axis",
+  "kotak",
+  "pnb",
+  "canara",
+  "bob",
+  "idfc",
+  "yes bank",
+  "paytm payments bank",
+  "fakebank",
+]);
+
+const AMBIGUOUS_PATTERNS = [
+  /registered\s+mobile/i,
+  /\baccount\s+number\b/i,
+  /\b\d+\s*[- ]?digit\s+account\s+number\b/i,
+  /\botp\b/i,
+  /verify\s+identity/i,
+  /protect\s+your\s+funds/i,
+  /immediately/i,
+];
+
+function isAmbiguousValue(value = "") {
+  return AMBIGUOUS_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function normalizePhoneForValidation(value = "") {
+  return value.replace(/[\s()-]/g, "");
+}
+
+function isValidIndianPhone(value = "") {
+  const normalized = normalizePhoneForValidation(value).replace(/^\+/, "");
+
+  if (/^91[6-9]\d{9}$/.test(normalized)) return true;
+  if (/^[6-9]\d{9}$/.test(normalized)) return true;
+
+  return false;
+}
+
+function isValidBankAccountNumber(value = "") {
+  return /^\d{9,18}$/.test(value);
+}
+
+function isAllowedBankName(value = "") {
+  return BANK_NAME_ALLOWLIST.has(value.toLowerCase());
+}
+
+function dedupeCaseInsensitive(values = []) {
+  const seen = new Set();
+  const result = [];
+
+  for (const raw of values) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+}
+
+export function sanitizePhoneCandidates(candidates = []) {
+  const filtered = candidates
+    .map((v) => String(v || "").trim())
+    .filter((v) => v.length > 0)
+    .filter((v) => !isAmbiguousValue(v))
+    .filter((v) => isValidIndianPhone(v));
+
+  return dedupeCaseInsensitive(filtered);
+}
+
+export function sanitizeBankCandidates(candidates = []) {
+  const filtered = candidates
+    .map((v) => String(v || "").trim())
+    .filter((v) => v.length > 0)
+    .filter((v) => !isAmbiguousValue(v))
+    .filter((v) => isValidBankAccountNumber(v) || isAllowedBankName(v));
+
+  return dedupeCaseInsensitive(filtered);
+}
