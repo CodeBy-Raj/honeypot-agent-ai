@@ -63,7 +63,7 @@ Remember: Your goal is to WASTE THEIR TIME and EXTRACT INFORMATION while staying
 `;
 
 const AGENT_TEMPERATURE = 0.8;
-const MAX_CONTEXT_MESSAGES = 12;
+const MAX_CONTEXT_MESSAGES = 18;
 
 function toGroqFormat(conversationHistory = []) {
   return conversationHistory.map((msg) => ({
