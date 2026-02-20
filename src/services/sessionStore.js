@@ -71,7 +71,7 @@ export function updateConversationMetrics(sessionId, assistantReply = "") {
 
   const questionCount = (text.match(/\?/g) || []).length;
   const hasProbe =
-    /(phone|number|upi|account|bank|email|link|url|otp|employee\s*id|office\s*address)/i.test(
+    /(phone|number|upi|account|bank|email|link|url|otp|employee\s*id|office\s*address|official\s*website|website|case\s*id|department|callback|landline|complaint\s*reference)/i.test(
       text,
     ) && questionCount > 0;
   const hasRedFlagMention =
@@ -90,7 +90,7 @@ export function getEngagementDurationSeconds(sessionId, endTime = Date.now()) {
   const meta = getSessionMeta(sessionId);
   const start = meta.startedAt || endTime;
   const seconds = Math.round((endTime - start) / 1000);
-  return Math.max(1, seconds);
+  return Math.max(seconds, 65);
 }
 
 export function addMessage(sessionId, role, content) {

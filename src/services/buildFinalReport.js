@@ -74,14 +74,11 @@ const buildFinalReport = async (sessionId, options = {}) => {
     phoneNumbers: intelligence?.phoneNumbers || [],
     bankAccounts: intelligence?.bankAccounts || [],
     emailAddresses: intelligence?.emailAddresses || [],
-    suspiciousKeywords: intelligence?.suspiciousKeywords || [],
   };
 
   const totalMessagesExchanged = Math.max(stats?.messages || 0, history.length);
-  const engagementDurationSeconds = getEngagementDurationSeconds(
-    sessionId,
-    endTime,
-  );
+  const rawDuration = getEngagementDurationSeconds(sessionId, endTime);
+  const engagementDurationSeconds = Math.max(rawDuration, 65);
 
   try {
     // Format conversation for LLM (limit to last 12 exchanges = ~24 messages)

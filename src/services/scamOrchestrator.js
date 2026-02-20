@@ -87,6 +87,10 @@ function enforceDeterministicReply(reply, probeTargets = [], meta = {}) {
   return finalReply;
 }
 
+function isStrictBankAccountCandidate(value = "") {
+  return /^\d{9,20}$/.test(String(value || "").trim());
+}
+
 export const orchestrateResponse = async (
   sessionId,
   userMessage,
@@ -178,15 +182,8 @@ export const orchestrateResponse = async (
         ? [llmIntel.entities.phoneNumber]
         : []),
     ]),
-    suspiciousKeywords: [
-      ...regexIntel.suspiciousKeywords,
-      ...(llmIntel.suspiciousKeywords || []),
-    ],
-    // Add new fields for report
-    // Capture both Name and Number if available
     bankAccounts: sanitizeBankCandidates([
       ...regexIntel.bankAccounts,
-      ...(llmIntel.entities?.bankName ? [llmIntel.entities.bankName] : []),
       ...(llmIntel.entities?.bankAccountNumber
         ? [llmIntel.entities.bankAccountNumber]
         : []),
@@ -194,7 +191,9 @@ export const orchestrateResponse = async (
   };
 
   mergedIntel.bankAccounts = mergedIntel.bankAccounts.filter(
-    (candidate) => sanitizePhoneCandidates([candidate]).length === 0,
+    (candidate) =>
+      sanitizePhoneCandidates([candidate]).length === 0 &&
+      isStrictBankAccountCandidate(candidate),
   );
 
   addIntelligence(sessionId, mergedIntel);
