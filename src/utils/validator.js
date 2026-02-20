@@ -28,7 +28,7 @@ function isValidIndianPhone(value = "") {
 function isValidBankAccountNumber(value = "") {
   const raw = String(value || "").trim();
 
-  if (!/^\d{9,20}$/.test(raw)) return false;
+  if (!/^\d{11,18}$/.test(raw)) return false;
   if (/[+-]/.test(raw)) return false;
   if (isValidIndianPhone(raw)) return false;
 

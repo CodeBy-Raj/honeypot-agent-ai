@@ -4,15 +4,68 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GEMINI_API_KEY, AI_PROVIDER } from "../config/env.js";
 import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 
-const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
-const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
-const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
-const PHONE_REGEX = /(?:\+91[\s-]?)?[6-9]\d{9}\b/g;
-const BANK_ACCOUNT_REGEX = /\b\d{9,20}\b/g;
+const PATTERNS = {
+  phone: [
+    /\+?91[-\s]?\d{5}[-\s]?\d{5}/g,
+    /\+?91[-\s]?\d{4}[-\s]?\d{3}[-\s]?\d{3}/g,
+    /\+?91[-\s]?\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4}/g,
+    /(?<!Rs\.?\s?)\b[6-9]\d{9}\b/g,
+  ],
+  upi: [
+    /\b[a-zA-Z0-9._-]+@(?:paytm|phonepe|gpay|ybl|oksbi|okaxis|okicici|upi|federal|ibl|kotak|dbs|sbi|axis|icici|hdfc|yesbank|rbl|barodampay|fakeupi|payhub|fakebank)(?:\.[a-zA-Z0-9.-]+)?\b/gi,
+  ],
+  bank: [/\b\d{11,18}\b/g],
+  url: [/https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi],
+  email: [/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g],
+};
 
 function isPhoneLikeDigits(value = "") {
   const normalized = String(value || "").trim();
   return /^(?:91)?[6-9]\d{9}$/.test(normalized);
+}
+
+function extractWithPatterns(text, patterns = [], transform = (v) => v) {
+  const results = new Set();
+  for (const pattern of patterns) {
+    const matches = text.match(pattern) || [];
+    matches.forEach((match) => results.add(transform(match)));
+  }
+  return Array.from(results).filter(Boolean);
+}
+
+function extractPhoneNumbers(text = "") {
+  const extracted = extractWithPatterns(text, PATTERNS.phone, (value) =>
+    String(value || "").trim(),
+  );
+
+  const withPrefix = [];
+  const standalone = [];
+
+  for (const num of extracted) {
+    const compact = num.replace(/[\s-]/g, "");
+    if (compact.startsWith("+91") || compact.startsWith("91")) {
+      withPrefix.push(num);
+    } else {
+      standalone.push(num);
+    }
+  }
+
+  const final = [...withPrefix];
+  for (const num of standalone) {
+    const compactNum = num.replace(/[\s-]/g, "");
+    const hasPrefixedEquivalent = withPrefix.some((prefixed) => {
+      const compactPrefixed = prefixed
+        .replace(/[\s-]/g, "")
+        .replace(/^\+?91/, "");
+      return compactPrefixed === compactNum;
+    });
+
+    if (!hasPrefixedEquivalent) {
+      final.push(num);
+    }
+  }
+
+  return final;
 }
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -33,16 +86,20 @@ export function extractIntelligence(text) {
       emailAddresses: [],
     };
 
-  const bankAccountCandidates = text.match(BANK_ACCOUNT_REGEX) || [];
+  const bankAccountCandidates = extractWithPatterns(text, PATTERNS.bank).filter(
+    (candidate) => !isPhoneLikeDigits(candidate),
+  );
 
   return {
-    phishingLinks: text.match(URL_REGEX) || [],
-    upiIds: text.match(UPI_REGEX) || [],
-    emailAddresses: text.match(EMAIL_REGEX) || [],
-    phoneNumbers: text.match(PHONE_REGEX) || [],
-    bankAccounts: bankAccountCandidates.filter(
-      (candidate) => !isPhoneLikeDigits(candidate),
+    phishingLinks: extractWithPatterns(text, PATTERNS.url),
+    upiIds: extractWithPatterns(text, PATTERNS.upi, (value) =>
+      String(value || "").toLowerCase(),
     ),
+    emailAddresses: extractWithPatterns(text, PATTERNS.email, (value) =>
+      String(value || "").toLowerCase(),
+    ),
+    phoneNumbers: extractPhoneNumbers(text),
+    bankAccounts: bankAccountCandidates,
   };
 }
 
