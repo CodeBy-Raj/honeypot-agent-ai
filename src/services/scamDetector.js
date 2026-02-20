@@ -1,4 +1,4 @@
-import { TANAOS_API_KEY } from "../config/env.js";
+import { getNextTanaosKey, TANAOS_API_KEYS } from "../config/aiProviders.js";
 
 const tanaos_url = "https://slm.tanaos.com/models/spam-detection";
 
@@ -89,63 +89,122 @@ function evaluateHeuristics(text = "") {
   return { riskScore, reasons };
 }
 
+function isRateLimitSignal(status, statusText = "", responseBody = "") {
+  if (status === 429) return true;
+
+  const corpus = `${statusText} ${responseBody}`.toLowerCase();
+  return corpus.includes("rate limit") || corpus.includes("too many requests");
+}
+
 const detectScam = async (text) => {
   if (!text) return { isScam: false, score: 0, reasons: [] };
 
   const heuristic = evaluateHeuristics(text);
 
-  try {
-    const response = await fetch(tanaos_url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": TANAOS_API_KEY,
-      },
-      body: JSON.stringify({ text }),
-    });
-
-    if (!response.ok) {
-      console.error("Tanaos API error:", response.status, response.statusText);
-      const fallbackScam = heuristic.riskScore >= 2;
-      return {
-        isScam: fallbackScam,
-        score: Math.max(0, Math.min(1, heuristic.riskScore * 0.12)),
-        reasons: [...heuristic.reasons, `model_http_${response.status}`],
-      };
-    }
-
-    const jsonResponse = await response.json();
-    const result = jsonResponse.data && jsonResponse.data[0];
-
-    if (!result) {
-      const fallbackScam = heuristic.riskScore >= 2;
-      return {
-        isScam: fallbackScam,
-        score: Math.max(0, Math.min(1, heuristic.riskScore * 0.1)),
-        reasons: [...heuristic.reasons, "model_empty_response"],
-      };
-    }
-
-    const isScam = result.label === "spam";
-    const modelScore = Number(result.score || 0);
-
-    const combinedScam =
-      isScam ||
-      heuristic.riskScore >= 3 ||
-      (heuristic.riskScore >= 2 && modelScore >= 0.45);
-
-    const normalizedScore = Math.max(
-      0,
-      Math.min(1, modelScore + heuristic.riskScore * 0.08),
-    );
-
+  if (TANAOS_API_KEYS.length === 0) {
+    console.error("Tanaos API key missing: using heuristic fallback only");
+    const fallbackScam = heuristic.riskScore >= 3;
     return {
-      isScam: combinedScam,
-      score: normalizedScore,
-      reasons: [
-        ...(isScam ? ["model_detected_spam"] : []),
-        ...heuristic.reasons,
-      ],
+      isScam: fallbackScam,
+      score: Math.max(0, Math.min(1, heuristic.riskScore * 0.1)),
+      reasons: [...heuristic.reasons, "model_key_missing_fallback"],
+    };
+  }
+
+  try {
+    let lastRateLimitReason = "model_rate_limited_all_keys";
+
+    for (let attempt = 0; attempt < TANAOS_API_KEYS.length; attempt++) {
+      const apiKey = getNextTanaosKey();
+
+      const response = await fetch(tanaos_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+
+        if (
+          isRateLimitSignal(response.status, response.statusText, errorBody) &&
+          attempt < TANAOS_API_KEYS.length - 1
+        ) {
+          console.warn(
+            `Tanaos rate limit hit, rotating key (attempt ${attempt + 1}/${TANAOS_API_KEYS.length})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          lastRateLimitReason = `model_http_${response.status}`;
+          continue;
+        }
+
+        if (
+          isRateLimitSignal(response.status, response.statusText, errorBody)
+        ) {
+          const fallbackScam = heuristic.riskScore >= 2;
+          return {
+            isScam: fallbackScam,
+            score: Math.max(0, Math.min(1, heuristic.riskScore * 0.12)),
+            reasons: [...heuristic.reasons, lastRateLimitReason],
+          };
+        }
+
+        console.error(
+          "Tanaos API error:",
+          response.status,
+          response.statusText,
+        );
+        const fallbackScam = heuristic.riskScore >= 2;
+        return {
+          isScam: fallbackScam,
+          score: Math.max(0, Math.min(1, heuristic.riskScore * 0.12)),
+          reasons: [...heuristic.reasons, `model_http_${response.status}`],
+        };
+      }
+
+      const jsonResponse = await response.json();
+      const result = jsonResponse.data && jsonResponse.data[0];
+
+      if (!result) {
+        const fallbackScam = heuristic.riskScore >= 2;
+        return {
+          isScam: fallbackScam,
+          score: Math.max(0, Math.min(1, heuristic.riskScore * 0.1)),
+          reasons: [...heuristic.reasons, "model_empty_response"],
+        };
+      }
+
+      const isScam = result.label === "spam";
+      const modelScore = Number(result.score || 0);
+
+      const combinedScam =
+        isScam ||
+        heuristic.riskScore >= 3 ||
+        (heuristic.riskScore >= 2 && modelScore >= 0.45);
+
+      const normalizedScore = Math.max(
+        0,
+        Math.min(1, modelScore + heuristic.riskScore * 0.08),
+      );
+
+      return {
+        isScam: combinedScam,
+        score: normalizedScore,
+        reasons: [
+          ...(isScam ? ["model_detected_spam"] : []),
+          ...heuristic.reasons,
+        ],
+      };
+    }
+
+    const fallbackScam = heuristic.riskScore >= 2;
+    return {
+      isScam: fallbackScam,
+      score: Math.max(0, Math.min(1, heuristic.riskScore * 0.12)),
+      reasons: [...heuristic.reasons, "model_rate_limited_all_keys"],
     };
   } catch (error) {
     console.error("Scam detection Error:", error);

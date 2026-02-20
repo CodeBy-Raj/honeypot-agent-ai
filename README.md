@@ -65,12 +65,14 @@ Required:
 - `PORT`
 - `API_KEY` (used by `x-api-key` auth)
 - `GEMINI_API_KEY`
-- `TANAOS_API_KEY`
+- `TANAOS_API_KEY_1` (or legacy `TANAOS_API_KEY`)
 - `GROQ_API_KEY_1`
 - `AI_PROVIDER` (`groq` recommended)
 
 Optional (recommended for key rotation):
 
+- `TANAOS_API_KEY_2`
+- `TANAOS_API_KEY_3`
 - `GROQ_API_KEY_2`
 - `GROQ_API_KEY_3`
 
