@@ -32,6 +32,24 @@ import {
 const MAX_MESSAGES = 17; // Increased slightly for more engagement
 const MIN_MESSAGES = 8;
 
+function getHistoryCorpusText(
+  externalHistory = [],
+  internalHistory = [],
+  current,
+) {
+  const externalTexts = (externalHistory || [])
+    .map((item) => item?.text)
+    .filter(Boolean);
+
+  const internalTexts = (internalHistory || [])
+    .map((item) => item?.parts?.[0]?.text || item?.content)
+    .filter(Boolean);
+
+  return [...externalTexts, ...internalTexts, current]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function enforceDeterministicReply(reply, probeTargets = [], meta = {}) {
   let finalReply = String(reply || "").trim();
 
@@ -104,7 +122,12 @@ export const orchestrateResponse = async (
   const sessionStats = getStats(sessionId);
 
   // 2. Parallel Analysis (Fast Regex + Parallel Models)
-  const regexIntel = extractIntelligence(userMessage);
+  const historyCorpus = getHistoryCorpusText(
+    externalHistory,
+    getSession(sessionId),
+    userMessage,
+  );
+  const regexIntel = extractIntelligence(historyCorpus);
 
   const hasHighSignalRegexIntel =
     regexIntel.upiIds.length > 0 ||
@@ -235,11 +258,16 @@ export const orchestrateResponse = async (
       sessionId,
       reply: safeReply,
       scamDetected: false,
-      totalMessagesExchanged: Math.max(sessionStats.messages, getSession(sessionId).length),
-      engagementDurationSeconds: getEngagementDurationSeconds(
-        sessionId,
-        messageTimestamp,
-      ),
+      engagementMetrics: {
+        totalMessagesExchanged: Math.max(
+          sessionStats.messages,
+          getSession(sessionId).length,
+        ),
+        engagementDurationSeconds: getEngagementDurationSeconds(
+          sessionId,
+          messageTimestamp,
+        ),
+      },
       extractedIntelligence: normalizedIntelligence(),
       agentNotes: buildAgentNotes(false),
       shouldStop: false,
@@ -266,7 +294,10 @@ export const orchestrateResponse = async (
       await Promise.race([
         finalcallback(finalOutput),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("final_callback_timeout_10s")), 10000),
+          setTimeout(
+            () => reject(new Error("final_callback_timeout_10s")),
+            10000,
+          ),
         ),
       ]);
     } catch (err) {
@@ -274,13 +305,17 @@ export const orchestrateResponse = async (
     }
 
     return {
+      status: "success",
       sessionId,
       reply: "Connection closed.",
       scamDetected: Boolean(finalOutput.scamDetected),
-      totalMessagesExchanged: finalOutput.totalMessagesExchanged,
-      engagementDurationSeconds:
-        finalOutput.engagementDurationSeconds ||
-        getEngagementDurationSeconds(sessionId, messageTimestamp),
+      engagementMetrics: {
+        totalMessagesExchanged:
+          finalOutput.engagementMetrics?.totalMessagesExchanged || 0,
+        engagementDurationSeconds:
+          finalOutput.engagementMetrics?.engagementDurationSeconds ||
+          getEngagementDurationSeconds(sessionId, messageTimestamp),
+      },
       extractedIntelligence: finalOutput.extractedIntelligence,
       agentNotes: finalOutput.agentNotes,
       shouldStop: true,
@@ -324,11 +359,16 @@ export const orchestrateResponse = async (
     sessionId,
     reply: agentReply,
     scamDetected: true,
-    totalMessagesExchanged: Math.max(sessionStats.messages, history.length + 2),
-    engagementDurationSeconds: getEngagementDurationSeconds(
-      sessionId,
-      messageTimestamp,
-    ),
+    engagementMetrics: {
+      totalMessagesExchanged: Math.max(
+        sessionStats.messages,
+        history.length + 2,
+      ),
+      engagementDurationSeconds: getEngagementDurationSeconds(
+        sessionId,
+        messageTimestamp,
+      ),
+    },
     extractedIntelligence: normalizedIntelligence(),
     agentNotes: buildAgentNotes(true),
     shouldStop: false,

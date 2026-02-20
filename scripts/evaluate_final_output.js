@@ -14,7 +14,11 @@ function flattenExtracted(extractedIntelligence = {}) {
   ];
 }
 
-export function evaluateFinalOutput(finalOutput, scenario, conversationHistory) {
+export function evaluateFinalOutput(
+  finalOutput,
+  scenario,
+  conversationHistory,
+) {
   const scores = {
     scamDetection: 0,
     intelligenceExtraction: 0,
@@ -68,7 +72,14 @@ export function evaluateFinalOutput(finalOutput, scenario, conversationHistory) 
   ).length;
   if (redFlags >= 3) scores.conversationQuality += 8;
 
-  const elicitationKeywords = ["phone", "upi", "account", "email", "link", "number"];
+  const elicitationKeywords = [
+    "phone",
+    "upi",
+    "account",
+    "email",
+    "link",
+    "number",
+  ];
   const elicitationCount = agentMessages.filter((m) =>
     elicitationKeywords.some((key) => m.text.toLowerCase().includes(key)),
   ).length;
@@ -87,20 +98,27 @@ export function evaluateFinalOutput(finalOutput, scenario, conversationHistory) 
   ).length;
   if (investigativeCount >= 3) scores.conversationQuality += 3;
 
-  if (Number(finalOutput.totalMessagesExchanged || 0) >= 8) {
+  const totalMessagesExchanged = Number(
+    finalOutput.engagementMetrics?.totalMessagesExchanged || 0,
+  );
+  const engagementDurationSeconds = Number(
+    finalOutput.engagementMetrics?.engagementDurationSeconds || 0,
+  );
+
+  if (totalMessagesExchanged >= 8) {
     scores.engagementQuality += 5;
   }
 
-  if (Number(finalOutput.engagementDurationSeconds || 0) > 0) {
+  if (engagementDurationSeconds > 0) {
     scores.engagementQuality += 5;
   }
 
   const requiredFields = [
+    "status",
     "sessionId",
     "scamDetected",
-    "totalMessagesExchanged",
-    "engagementDurationSeconds",
     "extractedIntelligence",
+    "engagementMetrics",
     "agentNotes",
   ];
 
@@ -108,9 +126,13 @@ export function evaluateFinalOutput(finalOutput, scenario, conversationHistory) 
 
   const hasExtractFields =
     finalOutput.extractedIntelligence &&
-    ["phoneNumbers", "bankAccounts", "upiIds", "phishingLinks", "emailAddresses"].every(
-      (field) => field in finalOutput.extractedIntelligence,
-    );
+    [
+      "phoneNumbers",
+      "bankAccounts",
+      "upiIds",
+      "phishingLinks",
+      "emailAddresses",
+    ].every((field) => field in finalOutput.extractedIntelligence);
 
   if (hasAllRequired && hasExtractFields) {
     scores.responseStructure = 10;

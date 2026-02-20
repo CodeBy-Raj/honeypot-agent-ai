@@ -26,7 +26,7 @@ function isValidIndianPhone(value = "") {
 }
 
 function isValidBankAccountNumber(value = "") {
-  return /^\d{9,18}$/.test(value);
+  return /^\d{9,20}$/.test(value);
 }
 
 function isLikelyBankName(value = "") {

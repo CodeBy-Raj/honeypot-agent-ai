@@ -5,19 +5,32 @@ import { orchestrateResponse } from "../services/scamOrchestrator.js";
 const router = express.Router();
 
 function buildStructuredResponse(result = {}) {
+  const totalMessagesExchanged = Number(
+    result.engagementMetrics?.totalMessagesExchanged ||
+      result.totalMessagesExchanged ||
+      0,
+  );
+  const engagementDurationSeconds = Number(
+    result.engagementMetrics?.engagementDurationSeconds ||
+      result.engagementDurationSeconds ||
+      0,
+  );
+
   return {
     status: "success",
     sessionId: result.sessionId || null,
     reply: result.reply || "",
     scamDetected: Boolean(result.scamDetected),
-    totalMessagesExchanged: Number(result.totalMessagesExchanged || 0),
-    engagementDurationSeconds: Number(result.engagementDurationSeconds || 0),
     extractedIntelligence: {
       phoneNumbers: result.extractedIntelligence?.phoneNumbers || [],
       bankAccounts: result.extractedIntelligence?.bankAccounts || [],
       upiIds: result.extractedIntelligence?.upiIds || [],
       phishingLinks: result.extractedIntelligence?.phishingLinks || [],
       emailAddresses: result.extractedIntelligence?.emailAddresses || [],
+    },
+    engagementMetrics: {
+      totalMessagesExchanged,
+      engagementDurationSeconds,
     },
     agentNotes: result.agentNotes || "",
   };
@@ -81,7 +94,8 @@ router.post("/honeypot", verifyApikey, async (req, res) => {
           sessionId,
           reply: "Invalid sender type.",
           scamDetected: false,
-          agentNotes: "Invalid request: message.sender must be 'scammer' or 'user'",
+          agentNotes:
+            "Invalid request: message.sender must be 'scammer' or 'user'",
           extractedIntelligence: {
             phoneNumbers: [],
             bankAccounts: [],
@@ -107,19 +121,26 @@ router.post("/honeypot", verifyApikey, async (req, res) => {
     );
 
     if (result?.skipped) {
-      return res.json({
-        status: "success",
-        reply: "",
-        scamDetected: false,
-        extractedIntelligence: {
-          phoneNumbers: [],
-          bankAccounts: [],
-          upiIds: [],
-          phishingLinks: [],
-          emailAddresses: [],
-        },
-        agentNotes: result.reason || "Message sender skipped by orchestrator.",
-      });
+      return res.json(
+        buildStructuredResponse({
+          sessionId,
+          reply: "",
+          scamDetected: false,
+          extractedIntelligence: {
+            phoneNumbers: [],
+            bankAccounts: [],
+            upiIds: [],
+            phishingLinks: [],
+            emailAddresses: [],
+          },
+          engagementMetrics: {
+            totalMessagesExchanged: 0,
+            engagementDurationSeconds: 0,
+          },
+          agentNotes:
+            result.reason || "Message sender skipped by orchestrator.",
+        }),
+      );
     }
 
     if (result.shouldStop) {

@@ -44,7 +44,7 @@ CONVERSATION TACTICS:
 
 INDIAN CONTEXT TOUCHES:
 - Use words like: "ji" (respectful), "sahab", "madam", "beta"
-- Mention: Aadhaar, PAN, bank names (SBI, HDFC, ICICI)
+- Mention: Aadhaar, PAN, and common banking context naturally
 - Show concern about: "mera paisa" (my money), "account band ho jayega" (account will close)
 
 RESPONSE STYLE:

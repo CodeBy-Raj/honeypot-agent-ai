@@ -89,7 +89,8 @@ export function updateConversationMetrics(sessionId, assistantReply = "") {
 export function getEngagementDurationSeconds(sessionId, endTime = Date.now()) {
   const meta = getSessionMeta(sessionId);
   const start = meta.startedAt || endTime;
-  return Math.max(0, Math.round((endTime - start) / 1000));
+  const seconds = Math.round((endTime - start) / 1000);
+  return Math.max(1, seconds);
 }
 
 export function addMessage(sessionId, role, content) {

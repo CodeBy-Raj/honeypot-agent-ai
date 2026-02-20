@@ -93,11 +93,14 @@ const buildFinalReport = async (sessionId, options = {}) => {
     if (chatLog.length < 50) {
       console.log("Conversation too short for AI summary, using fallback");
       return {
+        status: "success",
         sessionId: sessionId,
         scamDetected: stats?.scamDetected || false,
-        totalMessagesExchanged,
-        engagementDurationSeconds,
         extractedIntelligence: extractedIntelligence,
+        engagementMetrics: {
+          totalMessagesExchanged,
+          engagementDurationSeconds,
+        },
         agentNotes: fallbackNotes,
       };
     }
@@ -127,11 +130,14 @@ Return JSON: {"summary": "your text here"}`;
     if (result.summary && result.summary.length > 15) {
       console.log("✓ AI summary generated successfully");
       return {
+        status: "success",
         sessionId: sessionId,
         scamDetected: stats?.scamDetected || false,
-        totalMessagesExchanged,
-        engagementDurationSeconds,
         extractedIntelligence: extractedIntelligence,
+        engagementMetrics: {
+          totalMessagesExchanged,
+          engagementDurationSeconds,
+        },
         agentNotes: result.summary,
       };
     }
@@ -144,11 +150,14 @@ Return JSON: {"summary": "your text here"}`;
 
   // Return with fallback notes
   return {
+    status: "success",
     sessionId: sessionId,
     scamDetected: stats?.scamDetected || false,
-    totalMessagesExchanged,
-    engagementDurationSeconds,
     extractedIntelligence: extractedIntelligence,
+    engagementMetrics: {
+      totalMessagesExchanged,
+      engagementDurationSeconds,
+    },
     agentNotes: fallbackNotes,
   };
 };

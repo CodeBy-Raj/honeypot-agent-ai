@@ -4,7 +4,8 @@ import { evaluateFinalOutput } from "./evaluate_final_output.js";
 
 dotenv.config();
 
-const BASE_URL = process.env.ENDPOINT_URL || "http://localhost:3000/api/honeypot";
+const BASE_URL =
+  process.env.ENDPOINT_URL || "http://localhost:3000/api/honeypot";
 const API_KEY = process.env.API_KEY || "dev-secret-key";
 
 function delay(ms) {
@@ -44,11 +45,18 @@ async function sendTurn({ sessionId, text, conversationHistory }) {
 
 function buildFallbackFinalOutput(sessionId, lastPayload, conversationHistory) {
   return {
+    status: "success",
     sessionId,
     scamDetected: Boolean(lastPayload?.scamDetected),
-    totalMessagesExchanged:
-      Number(lastPayload?.totalMessagesExchanged || 0) || conversationHistory.length,
-    engagementDurationSeconds: Number(lastPayload?.engagementDurationSeconds || 0) || 1,
+    engagementMetrics: {
+      totalMessagesExchanged:
+        Number(lastPayload?.engagementMetrics?.totalMessagesExchanged || 0) ||
+        conversationHistory.length,
+      engagementDurationSeconds:
+        Number(
+          lastPayload?.engagementMetrics?.engagementDurationSeconds || 0,
+        ) || 1,
+    },
     extractedIntelligence: {
       phoneNumbers: lastPayload?.extractedIntelligence?.phoneNumbers || [],
       bankAccounts: lastPayload?.extractedIntelligence?.bankAccounts || [],
@@ -56,7 +64,8 @@ function buildFallbackFinalOutput(sessionId, lastPayload, conversationHistory) {
       phishingLinks: lastPayload?.extractedIntelligence?.phishingLinks || [],
       emailAddresses: lastPayload?.extractedIntelligence?.emailAddresses || [],
     },
-    agentNotes: lastPayload?.agentNotes || "No final output returned by endpoint.",
+    agentNotes:
+      lastPayload?.agentNotes || "No final output returned by endpoint.",
   };
 }
 
@@ -68,7 +77,8 @@ async function runScenario(scenario) {
   let lastPayload = null;
 
   for (let turn = 0; turn < 10; turn += 1) {
-    const scammerText = scenario.scammerMessages[turn] || "Please respond quickly.";
+    const scammerText =
+      scenario.scammerMessages[turn] || "Please respond quickly.";
 
     const { status, payload, latencyMs } = await sendTurn({
       sessionId,
@@ -102,11 +112,21 @@ async function runScenario(scenario) {
     await delay(250);
   }
 
-  const finalOutput = buildFallbackFinalOutput(sessionId, lastPayload, conversationHistory);
-  const evaluation = evaluateFinalOutput(finalOutput, scenario, conversationHistory);
+  const finalOutput = buildFallbackFinalOutput(
+    sessionId,
+    lastPayload,
+    conversationHistory,
+  );
+  const evaluation = evaluateFinalOutput(
+    finalOutput,
+    scenario,
+    conversationHistory,
+  );
 
   const maxLatency = Math.max(...latencies);
-  const avgLatency = Math.round(latencies.reduce((sum, x) => sum + x, 0) / latencies.length);
+  const avgLatency = Math.round(
+    latencies.reduce((sum, x) => sum + x, 0) / latencies.length,
+  );
 
   return {
     scenarioId: scenario.scenarioId,
@@ -128,12 +148,22 @@ async function runAll() {
 
     console.log(`\nScenario: ${scenario.scenarioId}`);
     console.log(`Scam Detection: ${report.evaluation.scores.scamDetection}/20`);
-    console.log(`Intelligence Extraction: ${report.evaluation.scores.intelligenceExtraction}/30`);
-    console.log(`Conversation Quality: ${report.evaluation.scores.conversationQuality}/30`);
-    console.log(`Engagement Quality: ${report.evaluation.scores.engagementQuality}/10`);
-    console.log(`Response Structure: ${report.evaluation.scores.responseStructure}/10`);
+    console.log(
+      `Intelligence Extraction: ${report.evaluation.scores.intelligenceExtraction}/30`,
+    );
+    console.log(
+      `Conversation Quality: ${report.evaluation.scores.conversationQuality}/30`,
+    );
+    console.log(
+      `Engagement Quality: ${report.evaluation.scores.engagementQuality}/10`,
+    );
+    console.log(
+      `Response Structure: ${report.evaluation.scores.responseStructure}/10`,
+    );
     console.log(`TOTAL: ${report.evaluation.total}/100`);
-    console.log(`Latencies: avg=${report.avgLatency}ms, max=${report.maxLatency}ms`);
+    console.log(
+      `Latencies: avg=${report.avgLatency}ms, max=${report.maxLatency}ms`,
+    );
   }
 
   const grandTotal = Math.round(
