@@ -1,18 +1,3 @@
-const BANK_NAME_ALLOWLIST = new Set([
-  "sbi",
-  "hdfc",
-  "icici",
-  "axis",
-  "kotak",
-  "pnb",
-  "canara",
-  "bob",
-  "idfc",
-  "yes bank",
-  "paytm payments bank",
-  "fakebank",
-]);
-
 const AMBIGUOUS_PATTERNS = [
   /registered\s+mobile/i,
   /\baccount\s+number\b/i,
@@ -44,8 +29,14 @@ function isValidBankAccountNumber(value = "") {
   return /^\d{9,18}$/.test(value);
 }
 
-function isAllowedBankName(value = "") {
-  return BANK_NAME_ALLOWLIST.has(value.toLowerCase());
+function isLikelyBankName(value = "") {
+  const normalized = value.trim();
+
+  if (/^[A-Z]{2,6}$/.test(normalized)) return true;
+  if (/^[A-Za-z]{3,}(?:\s+[A-Za-z]{2,}){0,2}\s+bank$/i.test(normalized))
+    return true;
+
+  return false;
 }
 
 function isValidEmail(value = "") {
@@ -85,7 +76,7 @@ export function sanitizeBankCandidates(candidates = []) {
     .map((v) => String(v || "").trim())
     .filter((v) => v.length > 0)
     .filter((v) => !isAmbiguousValue(v))
-    .filter((v) => isValidBankAccountNumber(v) || isAllowedBankName(v));
+    .filter((v) => isValidBankAccountNumber(v) || isLikelyBankName(v));
 
   return dedupeCaseInsensitive(filtered);
 }

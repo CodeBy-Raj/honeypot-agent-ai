@@ -1,0 +1,63 @@
+export const scenarios = [
+  {
+    scenarioId: "bank_fraud",
+    scamType: "bank_fraud",
+    fakeData: {
+      bankAccount: "1234567890123456",
+      upiId: "scammer.fraud@fakebank",
+      phoneNumber: "+91-9876543210",
+    },
+    scammerMessages: [
+      "URGENT: Your SBI account has been compromised. Your account will be blocked soon.",
+      "To verify identity, send your OTP and account number immediately.",
+      "I just resent OTP to +91-9876543210. Share it now.",
+      "Confirm your account number 1234567890123456 to prevent lock.",
+      "Send to UPI scammer.fraud@fakebank and we will clear verification.",
+      "Why delay? This is urgent. Reply immediately.",
+      "Share branch details and account screenshot now.",
+      "Last warning: account will be blocked in 2 minutes.",
+      "Resending again, share OTP and account now.",
+      "Final notice before lock.",
+    ],
+  },
+  {
+    scenarioId: "upi_fraud",
+    scamType: "upi_fraud",
+    fakeData: {
+      upiId: "cashback.scam@fakeupi",
+      phoneNumber: "+91-8765432109",
+    },
+    scammerMessages: [
+      "Congratulations! You have won cashback reward today.",
+      "To claim reward, confirm your UPI verification now.",
+      "Use UPI cashback.scam@fakeupi to receive benefits.",
+      "Our support line is +91-8765432109 if needed.",
+      "Please share OTP to complete cashback settlement.",
+      "Limited time offer, respond immediately.",
+      "Quickly confirm transaction details.",
+      "Pending payout. Send verification now.",
+      "Last reminder for cashback release.",
+      "Offer expires now.",
+    ],
+  },
+  {
+    scenarioId: "phishing",
+    scamType: "phishing",
+    fakeData: {
+      phishingLink: "http://amaz0n-deals.fake-site.com/claim?id=12345",
+      emailAddress: "offers@fake-amazon-deals.com",
+    },
+    scammerMessages: [
+      "You have been selected for iPhone 15 Pro giveaway.",
+      "Claim now: http://amaz0n-deals.fake-site.com/claim?id=12345",
+      "If link fails, contact offers@fake-amazon-deals.com",
+      "Complete verification quickly to avoid cancellation.",
+      "Your reward is reserved only for today.",
+      "Confirm your details and proceed.",
+      "Do not share this with anyone.",
+      "Time is running out, claim now.",
+      "Final chance to unlock your reward.",
+      "Offer closed if no response.",
+    ],
+  },
+];

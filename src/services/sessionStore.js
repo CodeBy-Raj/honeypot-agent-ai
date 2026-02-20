@@ -27,11 +27,17 @@ export function getSession(sessionId) {
     sessions.set(sessionId, []);
     // Assign a random persona to the session
     const randomPersona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
+    const now = Date.now();
     sessionMeta.set(sessionId, {
       persona: randomPersona,
       scamType: "unknown",
       stage: "analysis",
       goal: "engage",
+      startedAt: now,
+      lastEventAt: now,
+      questionCount: 0,
+      probeCount: 0,
+      redFlagMentions: 0,
     });
   }
   return sessions.get(sessionId);
@@ -47,6 +53,43 @@ export function getSessionMeta(sessionId) {
 export function updateSessionMeta(sessionId, updates) {
   const meta = getSessionMeta(sessionId);
   sessionMeta.set(sessionId, { ...meta, ...updates });
+}
+
+export function updateSessionActivity(sessionId, timestamp = Date.now()) {
+  const meta = getSessionMeta(sessionId);
+  const safeTs = typeof timestamp === "number" ? timestamp : Date.now();
+
+  const startedAt = Math.min(meta.startedAt || safeTs, safeTs);
+  const lastEventAt = Math.max(meta.lastEventAt || safeTs, safeTs);
+
+  updateSessionMeta(sessionId, { startedAt, lastEventAt });
+}
+
+export function updateConversationMetrics(sessionId, assistantReply = "") {
+  const meta = getSessionMeta(sessionId);
+  const text = String(assistantReply || "");
+
+  const questionCount = (text.match(/\?/g) || []).length;
+  const hasProbe =
+    /(phone|number|upi|account|bank|email|link|url|otp|employee\s*id|office\s*address)/i.test(
+      text,
+    ) && questionCount > 0;
+  const hasRedFlagMention =
+    /(urgent|otp|suspicious|risk|impersonat|phishing|link|blocked|locked|verify)/i.test(
+      text,
+    );
+
+  updateSessionMeta(sessionId, {
+    questionCount: (meta.questionCount || 0) + questionCount,
+    probeCount: (meta.probeCount || 0) + (hasProbe ? 1 : 0),
+    redFlagMentions: (meta.redFlagMentions || 0) + (hasRedFlagMention ? 1 : 0),
+  });
+}
+
+export function getEngagementDurationSeconds(sessionId, endTime = Date.now()) {
+  const meta = getSessionMeta(sessionId);
+  const start = meta.startedAt || endTime;
+  return Math.max(0, Math.round((endTime - start) / 1000));
 }
 
 export function addMessage(sessionId, role, content) {
@@ -65,5 +108,14 @@ export function syncSessionHistory(sessionId, externalHistory) {
       parts: [{ text: msg.text }],
     }));
     sessions.set(sessionId, formatted);
+
+    const earliestTs = externalHistory
+      .map((m) => m?.timestamp)
+      .filter((ts) => typeof ts === "number")
+      .sort((a, b) => a - b)[0];
+
+    if (earliestTs) {
+      updateSessionActivity(sessionId, earliestTs);
+    }
   }
 }

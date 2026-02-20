@@ -11,6 +11,9 @@ import {
   getSessionMeta,
   updateSessionMeta,
   syncSessionHistory,
+  updateSessionActivity,
+  updateConversationMetrics,
+  getEngagementDurationSeconds,
 } from "./sessionStore.js";
 import {
   incrementMessages,
@@ -27,12 +30,51 @@ import {
 } from "../utils/validator.js";
 
 const MAX_MESSAGES = 17; // Increased slightly for more engagement
+const MIN_MESSAGES = 8;
+
+function enforceDeterministicReply(reply, probeTargets = [], meta = {}) {
+  let finalReply = String(reply || "").trim();
+
+  if (!finalReply) {
+    finalReply = "ji, can you explain again?";
+  }
+
+  if ((meta.redFlagMentions || 0) < 3) {
+    const hasRiskMention =
+      /(urgent|otp|risk|suspicious|verify|blocked|locked|impersonat|phishing)/i.test(
+        finalReply,
+      );
+    if (!hasRiskMention) {
+      finalReply +=
+        " this is sounding urgent and risky, why are you asking OTP and account details?";
+    }
+  }
+
+  if (!finalReply.includes("?")) {
+    const probe =
+      probeTargets.length > 0
+        ? ` can you repeat your ${probeTargets[0]}?`
+        : " can you explain this clearly?";
+    finalReply += probe;
+  }
+
+  if ((meta.probeCount || 0) < 3 && probeTargets.length > 0) {
+    const hasProbePrompt =
+      /(phone|number|upi|account|bank|email|link|url|otp)/i.test(finalReply);
+    if (!hasProbePrompt) {
+      finalReply += ` and please share your ${probeTargets[0]} again?`;
+    }
+  }
+
+  return finalReply;
+}
 
 export const orchestrateResponse = async (
   sessionId,
   userMessage,
   externalHistory = [],
   sender = "scammer", // Added sender parameter
+  messageTimestamp = Date.now(),
 ) => {
   // Guard Clause: If sender is not scammer (e.g., echo/user message), skip orchestration
   // to avoid infinite loops and role-history corruption.
@@ -48,6 +90,8 @@ export const orchestrateResponse = async (
   }
 
   // 0. Sync State (Evaluation Readiness)
+  updateSessionActivity(sessionId, messageTimestamp);
+
   if (externalHistory && externalHistory.length > 0) {
     syncSessionHistory(sessionId, externalHistory);
     // Rough estimate: history length is total messages exchanged previously
@@ -128,6 +172,16 @@ export const orchestrateResponse = async (
 
   addIntelligence(sessionId, mergedIntel);
 
+  const probeTargets = [];
+  if (mergedIntel.phoneNumbers.length === 0) probeTargets.push("phone number");
+  if (mergedIntel.upiIds.length === 0) probeTargets.push("UPI ID");
+  if (mergedIntel.bankAccounts.length === 0)
+    probeTargets.push("bank account details");
+  if (mergedIntel.phishingLinks.length === 0)
+    probeTargets.push("suspicious link");
+  if (mergedIntel.emailAddresses.length === 0)
+    probeTargets.push("email address");
+
   // 3. Update Session Meta & Strategy
   const currentMeta = getSessionMeta(sessionId);
 
@@ -176,9 +230,16 @@ export const orchestrateResponse = async (
     const safeReply = "Thanks for your message.";
     addMessage(sessionId, "user", userMessage);
     addMessage(sessionId, "assistant", safeReply);
+    updateConversationMetrics(sessionId, safeReply);
     return {
+      sessionId,
       reply: safeReply,
       scamDetected: false,
+      totalMessagesExchanged: Math.max(sessionStats.messages, getSession(sessionId).length),
+      engagementDurationSeconds: getEngagementDurationSeconds(
+        sessionId,
+        messageTimestamp,
+      ),
       extractedIntelligence: normalizedIntelligence(),
       agentNotes: buildAgentNotes(false),
       shouldStop: false,
@@ -186,23 +247,44 @@ export const orchestrateResponse = async (
     };
   }
 
+  const meetsConversationQuality =
+    (currentMeta.questionCount || 0) >= 5 &&
+    (currentMeta.probeCount || 0) >= 3 &&
+    (currentMeta.redFlagMentions || 0) >= 3;
+
+  const shouldStopNow =
+    sessionStats.messages >= MAX_MESSAGES ||
+    (sessionStats.messages >= MIN_MESSAGES && meetsConversationQuality);
+
   // 4. Check Stopping Condition
-  if (sessionStats.messages >= MAX_MESSAGES) {
-    Promise.resolve()
-      .then(async () => {
-        const report = await buildFinalReport(sessionId);
-        await finalcallback(report);
-      })
-      .catch((err) => {
-        console.error("Final report callback failed:", err);
-      });
+  if (shouldStopNow) {
+    const finalOutput = await buildFinalReport(sessionId, {
+      endTime: messageTimestamp,
+    });
+
+    try {
+      await Promise.race([
+        finalcallback(finalOutput),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("final_callback_timeout_10s")), 10000),
+        ),
+      ]);
+    } catch (err) {
+      console.error("Final report callback issue:", err?.message || err);
+    }
 
     return {
-      reply: "Connection closed. (Honeypot Session Complete)",
-      scamDetected: true,
-      extractedIntelligence: normalizedIntelligence(),
-      agentNotes: buildAgentNotes(true),
+      sessionId,
+      reply: "Connection closed.",
+      scamDetected: Boolean(finalOutput.scamDetected),
+      totalMessagesExchanged: finalOutput.totalMessagesExchanged,
+      engagementDurationSeconds:
+        finalOutput.engagementDurationSeconds ||
+        getEngagementDurationSeconds(sessionId, messageTimestamp),
+      extractedIntelligence: finalOutput.extractedIntelligence,
+      agentNotes: finalOutput.agentNotes,
       shouldStop: true,
+      finalOutput,
     };
   }
 
@@ -219,20 +301,34 @@ export const orchestrateResponse = async (
   // We rely on previous `honeypot.js` logic which replied "Okay tell me more" if not scam.
   // We will let the Agent handle it but instruct it to be cautious if not sure.
 
-  const agentReply = await generateReply(
+  const rawAgentReply = await generateReply(
     userMessage,
     history,
     currentMeta.persona,
     newGoal,
+    probeTargets,
+  );
+
+  const agentReply = enforceDeterministicReply(
+    rawAgentReply,
+    probeTargets,
+    currentMeta,
   );
 
   // 6. Update History
   addMessage(sessionId, "user", userMessage);
   addMessage(sessionId, "assistant", agentReply);
+  updateConversationMetrics(sessionId, agentReply);
 
   return {
+    sessionId,
     reply: agentReply,
     scamDetected: true,
+    totalMessagesExchanged: Math.max(sessionStats.messages, history.length + 2),
+    engagementDurationSeconds: getEngagementDurationSeconds(
+      sessionId,
+      messageTimestamp,
+    ),
     extractedIntelligence: normalizedIntelligence(),
     agentNotes: buildAgentNotes(true),
     shouldStop: false,
