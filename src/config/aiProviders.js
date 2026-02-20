@@ -48,8 +48,7 @@ export function getNextTanaosKey() {
   }
 
   const key = TANAOS_API_KEYS[currentTanaosKeyIndex];
-  currentTanaosKeyIndex =
-    (currentTanaosKeyIndex + 1) % TANAOS_API_KEYS.length;
+  currentTanaosKeyIndex = (currentTanaosKeyIndex + 1) % TANAOS_API_KEYS.length;
 
   return key;
 }

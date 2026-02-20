@@ -141,7 +141,9 @@ const detectScam = async (text) => {
           continue;
         }
 
-        if (isRateLimitSignal(response.status, response.statusText, errorBody)) {
+        if (
+          isRateLimitSignal(response.status, response.statusText, errorBody)
+        ) {
           const fallbackScam = heuristic.riskScore >= 2;
           return {
             isScam: fallbackScam,
@@ -150,7 +152,11 @@ const detectScam = async (text) => {
           };
         }
 
-        console.error("Tanaos API error:", response.status, response.statusText);
+        console.error(
+          "Tanaos API error:",
+          response.status,
+          response.statusText,
+        );
         const fallbackScam = heuristic.riskScore >= 2;
         return {
           isScam: fallbackScam,
