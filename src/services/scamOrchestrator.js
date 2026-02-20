@@ -193,6 +193,10 @@ export const orchestrateResponse = async (
     ]),
   };
 
+  mergedIntel.bankAccounts = mergedIntel.bankAccounts.filter(
+    (candidate) => sanitizePhoneCandidates([candidate]).length === 0,
+  );
+
   addIntelligence(sessionId, mergedIntel);
 
   const probeTargets = [];

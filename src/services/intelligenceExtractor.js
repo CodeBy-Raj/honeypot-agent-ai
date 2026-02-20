@@ -8,9 +8,9 @@ const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
 const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
 const PHONE_REGEX = /(?:\b|(?:\+91[\s-]?))[6-9]\d{9}\b/g;
-const BANK_ACCOUNT_REGEX = /\b\d{9,20}\b/g;
+const BANK_ACCOUNT_REGEX = /\b\d{11,20}\b/g;
 const BANK_NAME_GENERIC_REGEX =
-  /\b(?:[A-Z]{2,6}(?=\s+account)|[A-Za-z]{3,}(?:\s+[A-Za-z]{2,}){0,2}\s+bank)\b/g;
+  /\b(?:SBI|HDFC|ICICI|AXIS|PNB|KOTAK|YES\s+BANK|IDFC(?:\s+FIRST\s+BANK)?|CANARA\s+BANK|INDUSIND\s+BANK|BANK\s+OF\s+BARODA|PUNJAB\s+NATIONAL\s+BANK|UNION\s+BANK|STATE\s+BANK\s+OF\s+INDIA)\b/gi;
 const SUSPICIOUS_KEYWORDS = [
   "urgent",
   "verify now",
@@ -69,17 +69,25 @@ export async function extractIntelligenceWithLLM(text) {
       {
         "scamType": "phishing | investment | tech_support | lottery | job | unknown",
         "riskScore": number (0-100),
+        "suspiciousKeywords": string[],
         "entities": {
            "bankName": string | null,
            "bankAccountNumber": string | null,
            "upiId": string | null,
            "phoneNumber": string | null,
+           "emailAddress": string | null,
            "cryptoWallet": string | null,
            "url": string | null,
            "otpRequest": boolean
         },
         "intent": "What is the scammer trying to do right now?"
       }
+
+      Rules:
+      - Only set bankAccountNumber when message explicitly mentions account context (account / a-c / acct / bank account).
+      - Never place phone numbers in bankAccountNumber.
+      - bankName must be an institution name, not a generic phrase like "my bank".
+      - If uncertain, return null for that field.
       
       Message: "${text}"
     `;

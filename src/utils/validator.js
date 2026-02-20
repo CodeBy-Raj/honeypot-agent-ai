@@ -26,15 +26,55 @@ function isValidIndianPhone(value = "") {
 }
 
 function isValidBankAccountNumber(value = "") {
-  return /^\d{9,20}$/.test(value);
+  const normalized = value.replace(/\D/g, "");
+
+  if (!/^\d{11,20}$/.test(normalized)) return false;
+  if (isValidIndianPhone(normalized)) return false;
+  if (/^(\d)\1{10,}$/.test(normalized)) return false;
+
+  return true;
 }
 
 function isLikelyBankName(value = "") {
   const normalized = value.trim();
+  const compact = normalized.replace(/\s+/g, " ").toLowerCase();
 
   if (/^[A-Z]{2,6}$/.test(normalized)) return true;
-  if (/^[A-Za-z]{3,}(?:\s+[A-Za-z]{2,}){0,2}\s+bank$/i.test(normalized))
+  if (
+    /\b(my|your|their|our|his|her|this|that|handles?|account)\b/i.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    [
+      "state bank of india",
+      "bank of baroda",
+      "punjab national bank",
+      "union bank",
+      "canara bank",
+      "hdfc bank",
+      "icici bank",
+      "axis bank",
+      "kotak mahindra bank",
+      "yes bank",
+      "idfc first bank",
+      "indusind bank",
+      "sbi",
+      "hdfc",
+      "icici",
+      "axis",
+      "pnb",
+      "kotak",
+      "idfc",
+      "indusind",
+      "bob",
+    ].includes(compact)
+  ) {
     return true;
+  }
 
   return false;
 }
