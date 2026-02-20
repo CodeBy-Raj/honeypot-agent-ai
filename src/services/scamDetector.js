@@ -47,6 +47,26 @@ const RISK_PATTERNS = [
     weight: 2,
     reason: "invoice_callback_pattern",
   },
+  {
+    regex: /\binvoice\b.{0,30}(click|verify|download)/i,
+    weight: 3,
+    reason: "invoice_phishing",
+  },
+  {
+    regex: /\bjob\b.{0,20}(opportunity|offer|opening)/i,
+    weight: 2,
+    reason: "job_offer_lure",
+  },
+  {
+    regex: /\bwork\s+from\s+home\b/i,
+    weight: 2,
+    reason: "work_from_home_lure",
+  },
+  {
+    regex: /\bsubmit\b.{0,20}(aadhaar|pan|bank|details)/i,
+    weight: 3,
+    reason: "data_harvest_request",
+  },
 ];
 
 const BENIGN_PATTERNS = [
@@ -65,6 +85,31 @@ const BENIGN_PATTERNS = [
       /\bdinner\s+split\b|\bsplit\s+bill\b|\bfamily\b|\breached\s+office\b/i,
     weight: 1,
     reason: "personal_context",
+  },
+  {
+    regex: /\byour\s+(account\s+)?balance\s+is\b/i,
+    weight: 2,
+    reason: "balance_info",
+  },
+  {
+    regex: /\btransaction\s+(successful|completed)\b/i,
+    weight: 2,
+    reason: "transaction_confirmation",
+  },
+  {
+    regex: /\bthis\s+is\s+(a\s+)?system\s+generated\b/i,
+    weight: 2,
+    reason: "system_generated",
+  },
+  {
+    regex: /\bcan\s+you\s+(send|transfer|pay)\s+(me|us)\b/i,
+    weight: 2,
+    reason: "friend_request",
+  },
+  {
+    regex: /\bfriend\b|\bfamily\b/i,
+    weight: 1,
+    reason: "personal_relationship_context",
   },
 ];
 
