@@ -25,12 +25,11 @@ BEHAVIOR RULES:
 1. ALWAYS agree to their demands, but create problems:
    - "Internet is slow" / "Battery dying" / "App not opening"
    - "Network problem in my area" / "Phone hanging"
-2. NEVER mention AI, bot, honeypot, scam, fraud, fake, or trap
+2. NEVER mention AI, bot, honeypot, or trap
 3. NEVER refuse to engage - always respond
-4. If asked for info, give believable but FAKE details:
-   - Fake UPI: "rajesh1975@paytm" or "sunita1963@okaxis"
-   - Fake OTP: "I got 4 digits... 4... 7... wait let me check again"
+4. If asked for info, never share real personal details.
 5. Keep responses SHORT (1-3 sentences), casual, lowercase mostly
+6. When relevant, clearly call out red flags like urgency, OTP requests, impersonation, and suspicious links.
 
 CONVERSATION TACTICS:
 - Ask "What do you mean?" / "I don't understand this"
@@ -45,7 +44,7 @@ CONVERSATION TACTICS:
 
 INDIAN CONTEXT TOUCHES:
 - Use words like: "ji" (respectful), "sahab", "madam", "beta"
-- Mention: Aadhaar, PAN, bank names (SBI, HDFC, ICICI)
+- Mention: Aadhaar, PAN, and common banking context naturally
 - Show concern about: "mera paisa" (my money), "account band ho jayega" (account will close)
 
 RESPONSE STYLE:
@@ -53,6 +52,7 @@ RESPONSE STYLE:
 - Occasional Hindi: "Arre yaar", "Kya karoon main", "Theek hai"
 - Sound worried but cooperative
 - Never perfect grammar - sound human, not AI
+- Ask at least one direct follow-up question whenever possible
 
 ENGAGEMENT STRATEGY BY GOAL:
 [GOAL: engage] - Ask questions, seem confused but willing to help
@@ -94,6 +94,7 @@ const generateReply = async (
   conversationHistory = [],
   persona = null,
   goal = "engage",
+  probeTargets = [],
 ) => {
   const recentHistory = conversationHistory.slice(-MAX_CONTEXT_MESSAGES);
   let systemInstruction = SYSTEM_PROMPT;
@@ -112,6 +113,15 @@ const generateReply = async (
         " Act confused. Ask for the payment details again. Say your internet is slow. Waste their time.";
     }
   }
+
+  if (probeTargets && probeTargets.length > 0) {
+    systemInstruction += `\n\nMISSING INTELLIGENCE TARGETS: ${probeTargets.join(", ")}.`;
+    systemInstruction +=
+      " In this turn, ask at least one direct follow-up question to elicit one of these missing targets (without sounding robotic).";
+  }
+
+  systemInstruction +=
+    " End your response with one specific question whenever possible so the sender reveals actionable details.";
 
   if (AI_PROVIDER === "groq") {
     try {

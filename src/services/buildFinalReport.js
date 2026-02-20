@@ -1,6 +1,10 @@
 import { getStats } from "./sessionStats.js";
 import { getIntelligence } from "./intelligenceStore.js";
-import { getSessionMeta, getSession } from "./sessionStore.js";
+import {
+  getSessionMeta,
+  getSession,
+  getEngagementDurationSeconds,
+} from "./sessionStore.js";
 import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 
 /**
@@ -26,11 +30,13 @@ function getRoleName(msg) {
   return msg.role || "Unknown";
 }
 
-const buildFinalReport = async (sessionId) => {
+const buildFinalReport = async (sessionId, options = {}) => {
   const intelligence = getIntelligence(sessionId);
   const stats = getStats(sessionId);
   const meta = getSessionMeta(sessionId);
   const history = getSession(sessionId) || [];
+  const endTime =
+    typeof options.endTime === "number" ? options.endTime : Date.now();
 
   // Generate Rules-Based Fallback Summary (instant, no API)
   const noteParts = [];
@@ -67,8 +73,14 @@ const buildFinalReport = async (sessionId) => {
     upiIds: intelligence?.upiIds || [],
     phoneNumbers: intelligence?.phoneNumbers || [],
     bankAccounts: intelligence?.bankAccounts || [],
-    suspiciousKeywords: intelligence?.suspiciousKeywords || [],
+    emailAddresses: intelligence?.emailAddresses || [],
   };
+
+  const totalMessagesExchanged = Math.max(stats?.messages || 0, history.length);
+  const engagementDurationSeconds = getEngagementDurationSeconds(
+    sessionId,
+    endTime,
+  );
 
   try {
     // Format conversation for LLM (limit to last 12 exchanges = ~24 messages)
@@ -81,10 +93,14 @@ const buildFinalReport = async (sessionId) => {
     if (chatLog.length < 50) {
       console.log("Conversation too short for AI summary, using fallback");
       return {
+        status: "success",
         sessionId: sessionId,
         scamDetected: stats?.scamDetected || false,
-        totalMessagesExchanged: stats?.messages || 0,
         extractedIntelligence: extractedIntelligence,
+        engagementMetrics: {
+          totalMessagesExchanged,
+          engagementDurationSeconds,
+        },
         agentNotes: fallbackNotes,
       };
     }
@@ -104,15 +120,24 @@ Max 50 words.
 Return JSON: {"summary": "your text here"}`;
 
     // Use JSON function for reliable structured output
-    const result = await generateGroqJsonWithRetry(prompt);
+    const result = await Promise.race([
+      generateGroqJsonWithRetry(prompt),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("summary_timeout")), 2500),
+      ),
+    ]);
 
     if (result.summary && result.summary.length > 15) {
       console.log("✓ AI summary generated successfully");
       return {
+        status: "success",
         sessionId: sessionId,
         scamDetected: stats?.scamDetected || false,
-        totalMessagesExchanged: stats?.messages || 0,
         extractedIntelligence: extractedIntelligence,
+        engagementMetrics: {
+          totalMessagesExchanged,
+          engagementDurationSeconds,
+        },
         agentNotes: result.summary,
       };
     }
@@ -125,10 +150,14 @@ Return JSON: {"summary": "your text here"}`;
 
   // Return with fallback notes
   return {
+    status: "success",
     sessionId: sessionId,
     scamDetected: stats?.scamDetected || false,
-    totalMessagesExchanged: stats?.messages || 0,
     extractedIntelligence: extractedIntelligence,
+    engagementMetrics: {
+      totalMessagesExchanged,
+      engagementDurationSeconds,
+    },
     agentNotes: fallbackNotes,
   };
 };

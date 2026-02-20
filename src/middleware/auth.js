@@ -1,16 +1,13 @@
+import { API_KEY } from "../config/env.js";
 
-import {API_KEY} from '../config/env.js';
+const verifyApiKey = (req, res, next) => {
+  const apiKey = req.headers["x-api-key"];
 
-const verifyApiKey= (req,res,next)=>{
-    const api_key=req.headers["x-api-key"];
+  if (!apiKey || apiKey !== API_KEY) {
+    req.authError = "Unauthorized: Invalid or missing api key";
+  }
 
-    if(!api_key || api_key!==API_KEY){
-        return res.status(401).json({
-            error:"Unauthorized: Invalid or missing api key"
-        })
-    }
-
-    next();
-}
+  next();
+};
 
 export default verifyApiKey;

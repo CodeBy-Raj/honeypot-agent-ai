@@ -8,9 +8,9 @@ const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
 const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
 const PHONE_REGEX = /(?:\b|(?:\+91[\s-]?))[6-9]\d{9}\b/g;
-const BANK_ACCOUNT_REGEX = /\b\d{9,18}\b/g;
-const BANK_NAME_REGEX =
-  /\b(sbi|hdfc|icici|axis|kotak|pnb|canara|bob|idfc|yes bank|paytm payments bank|fakebank)\b/gi;
+const BANK_ACCOUNT_REGEX = /\b\d{9,20}\b/g;
+const BANK_NAME_GENERIC_REGEX =
+  /\b(?:[A-Z]{2,6}(?=\s+account)|[A-Za-z]{3,}(?:\s+[A-Za-z]{2,}){0,2}\s+bank)\b/g;
 const SUSPICIOUS_KEYWORDS = [
   "urgent",
   "verify now",
@@ -54,7 +54,7 @@ export function extractIntelligence(text) {
     phoneNumbers: text.match(PHONE_REGEX) || [],
     bankAccounts: [
       ...(text.match(BANK_ACCOUNT_REGEX) || []),
-      ...(text.match(BANK_NAME_REGEX) || []),
+      ...(text.match(BANK_NAME_GENERIC_REGEX) || []),
     ],
     suspiciousKeywords: foundKeywords,
   };

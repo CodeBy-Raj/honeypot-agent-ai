@@ -130,8 +130,11 @@ Validation rules:
 ```json
 {
   "status": "success",
+  "sessionId": "session-123",
   "reply": "Your conversational response to the scammer",
   "scamDetected": true,
+  "totalMessagesExchanged": 6,
+  "engagementDurationSeconds": 42,
   "extractedIntelligence": {
     "phoneNumbers": [],
     "bankAccounts": [],
@@ -148,8 +151,11 @@ When stop condition is reached:
 ```json
 {
   "status": "success",
+  "sessionId": "session-123",
   "reply": "Connection closed.",
   "scamDetected": true,
+  "totalMessagesExchanged": 18,
+  "engagementDurationSeconds": 345,
   "extractedIntelligence": {
     "phoneNumbers": [],
     "bankAccounts": [],
@@ -198,6 +204,20 @@ Checklist:
 - Include full previous exchange in `conversationHistory`
 - Verify final response eventually becomes `Connection closed.`
 
+## Local Evaluation Scripts
+
+Run the local rubric-aligned evaluator before submission:
+
+```bash
+node scripts/run_scenarios.js
+```
+
+Scripts included:
+
+- `scripts/scenarios.js` - scenario definitions
+- `scripts/evaluate_final_output.js` - scoring engine
+- `scripts/run_scenarios.js` - API runner + score output
+
 ## Final Callback (Mandatory for scoring)
 
 System posts final report to:
@@ -209,6 +229,7 @@ Includes:
 - `sessionId`
 - `scamDetected`
 - `totalMessagesExchanged`
+- `engagementDurationSeconds`
 - `extractedIntelligence`
 - `agentNotes` (hybrid: LLM summary + fallback rules)
 
@@ -222,10 +243,8 @@ Includes:
 
 ## Troubleshooting
 
-- `401 Unauthorized`:
-  - Missing or invalid `x-api-key`
-- `400 Invalid request`:
-  - Missing required `message` fields
+- Validation/auth failures:
+  - Endpoint still returns HTTP 200 with a consistent JSON envelope and explanatory `agentNotes`
 - High latency:
   - Expected with multi-model calls; check provider response times and region
 - Callback failures:
