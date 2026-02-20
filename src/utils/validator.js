@@ -26,57 +26,13 @@ function isValidIndianPhone(value = "") {
 }
 
 function isValidBankAccountNumber(value = "") {
-  const normalized = value.replace(/\D/g, "");
+  const raw = String(value || "").trim();
 
-  if (!/^\d{11,20}$/.test(normalized)) return false;
-  if (isValidIndianPhone(normalized)) return false;
-  if (/^(\d)\1{10,}$/.test(normalized)) return false;
+  if (!/^\d{9,20}$/.test(raw)) return false;
+  if (/[+-]/.test(raw)) return false;
+  if (isValidIndianPhone(raw)) return false;
 
   return true;
-}
-
-function isLikelyBankName(value = "") {
-  const normalized = value.trim();
-  const compact = normalized.replace(/\s+/g, " ").toLowerCase();
-
-  if (/^[A-Z]{2,6}$/.test(normalized)) return true;
-  if (
-    /\b(my|your|their|our|his|her|this|that|handles?|account)\b/i.test(
-      normalized,
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    [
-      "state bank of india",
-      "bank of baroda",
-      "punjab national bank",
-      "union bank",
-      "canara bank",
-      "hdfc bank",
-      "icici bank",
-      "axis bank",
-      "kotak mahindra bank",
-      "yes bank",
-      "idfc first bank",
-      "indusind bank",
-      "sbi",
-      "hdfc",
-      "icici",
-      "axis",
-      "pnb",
-      "kotak",
-      "idfc",
-      "indusind",
-      "bob",
-    ].includes(compact)
-  ) {
-    return true;
-  }
-
-  return false;
 }
 
 function isValidEmail(value = "") {
@@ -116,7 +72,7 @@ export function sanitizeBankCandidates(candidates = []) {
     .map((v) => String(v || "").trim())
     .filter((v) => v.length > 0)
     .filter((v) => !isAmbiguousValue(v))
-    .filter((v) => isValidBankAccountNumber(v) || isLikelyBankName(v));
+    .filter((v) => isValidBankAccountNumber(v));
 
   return dedupeCaseInsensitive(filtered);
 }

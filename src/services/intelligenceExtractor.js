@@ -7,21 +7,13 @@ import { generateGroqJsonWithRetry } from "./groqServicesWithRotation.js";
 const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
 const UPI_REGEX = /\b[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}\b/g;
 const EMAIL_REGEX = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
-const PHONE_REGEX = /(?:\b|(?:\+91[\s-]?))[6-9]\d{9}\b/g;
-const BANK_ACCOUNT_REGEX = /\b\d{11,20}\b/g;
-const BANK_NAME_GENERIC_REGEX =
-  /\b(?:SBI|HDFC|ICICI|AXIS|PNB|KOTAK|YES\s+BANK|IDFC(?:\s+FIRST\s+BANK)?|CANARA\s+BANK|INDUSIND\s+BANK|BANK\s+OF\s+BARODA|PUNJAB\s+NATIONAL\s+BANK|UNION\s+BANK|STATE\s+BANK\s+OF\s+INDIA)\b/gi;
-const SUSPICIOUS_KEYWORDS = [
-  "urgent",
-  "verify now",
-  "account blocked",
-  "kyc",
-  "suspend",
-  "lapse",
-  "lottery",
-  "winner",
-  "click here",
-];
+const PHONE_REGEX = /(?:\+91[\s-]?)?[6-9]\d{9}\b/g;
+const BANK_ACCOUNT_REGEX = /\b\d{9,20}\b/g;
+
+function isPhoneLikeDigits(value = "") {
+  const normalized = String(value || "").trim();
+  return /^(?:91)?[6-9]\d{9}$/.test(normalized);
+}
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
@@ -39,24 +31,18 @@ export function extractIntelligence(text) {
       phoneNumbers: [],
       bankAccounts: [],
       emailAddresses: [],
-      suspiciousKeywords: [],
     };
 
-  const lowerText = text.toLowerCase();
-  const foundKeywords = SUSPICIOUS_KEYWORDS.filter((kw) =>
-    lowerText.includes(kw),
-  );
+  const bankAccountCandidates = text.match(BANK_ACCOUNT_REGEX) || [];
 
   return {
     phishingLinks: text.match(URL_REGEX) || [],
     upiIds: text.match(UPI_REGEX) || [],
     emailAddresses: text.match(EMAIL_REGEX) || [],
     phoneNumbers: text.match(PHONE_REGEX) || [],
-    bankAccounts: [
-      ...(text.match(BANK_ACCOUNT_REGEX) || []),
-      ...(text.match(BANK_NAME_GENERIC_REGEX) || []),
-    ],
-    suspiciousKeywords: foundKeywords,
+    bankAccounts: bankAccountCandidates.filter(
+      (candidate) => !isPhoneLikeDigits(candidate),
+    ),
   };
 }
 
@@ -69,9 +55,7 @@ export async function extractIntelligenceWithLLM(text) {
       {
         "scamType": "phishing | investment | tech_support | lottery | job | unknown",
         "riskScore": number (0-100),
-        "suspiciousKeywords": string[],
         "entities": {
-           "bankName": string | null,
            "bankAccountNumber": string | null,
            "upiId": string | null,
            "phoneNumber": string | null,
@@ -84,9 +68,9 @@ export async function extractIntelligenceWithLLM(text) {
       }
 
       Rules:
+      - bankAccountNumber must be numeric-only (9-20 digits), with no plus sign and no dashes.
       - Only set bankAccountNumber when message explicitly mentions account context (account / a-c / acct / bank account).
       - Never place phone numbers in bankAccountNumber.
-      - bankName must be an institution name, not a generic phrase like "my bank".
       - If uncertain, return null for that field.
       
       Message: "${text}"

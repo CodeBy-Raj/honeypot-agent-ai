@@ -20,8 +20,6 @@ function normalizeFinalPayload(resultData = {}) {
       phishingLinks: resultData.extractedIntelligence?.phishingLinks || [],
       phoneNumbers: resultData.extractedIntelligence?.phoneNumbers || [],
       emailAddresses: resultData.extractedIntelligence?.emailAddresses || [],
-      suspiciousKeywords:
-        resultData.extractedIntelligence?.suspiciousKeywords || [],
     },
     agentNotes: String(resultData.agentNotes || ""),
   };
