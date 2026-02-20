@@ -74,6 +74,7 @@ const buildFinalReport = async (sessionId, options = {}) => {
     phoneNumbers: intelligence?.phoneNumbers || [],
     bankAccounts: intelligence?.bankAccounts || [],
     emailAddresses: intelligence?.emailAddresses || [],
+    suspiciousKeywords: intelligence?.suspiciousKeywords || [],
   };
 
   const totalMessagesExchanged = Math.max(stats?.messages || 0, history.length);
